@@ -31,7 +31,7 @@ def load_schema():
         if filename in _cache:
             return _cache[filename]
         schema_path = SCHEMAS_DIR / filename
-        with open(schema_path, "r", encoding="utf-8") as f:
+        with open(schema_path, encoding="utf-8") as f:
             schema = json.load(f)
         _cache[filename] = schema
         return schema

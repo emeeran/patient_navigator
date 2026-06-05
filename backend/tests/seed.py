@@ -2,6 +2,7 @@
 
 import uuid
 
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
@@ -64,7 +65,7 @@ async def seed_test_data(db: AsyncSession) -> dict:
             db.add(role)
     await db.flush()
 
-    # Seed users
+    # Seed users (create or update to ensure correct role assignment)
     users = {}
     for role_name in ["admin", "navigator", "clinician", "volunteer", "patient"]:
         user_id = SEED_USER_IDS[role_name]
@@ -79,6 +80,11 @@ async def seed_test_data(db: AsyncSession) -> dict:
                 is_active=True,
             )
             db.add(user)
+        else:
+            # Ensure existing user has correct role and active status
+            user.role_id = SEED_ROLE_IDS[role_name]
+            user.is_active = True
+            user.password_hash = TEST_PASSWORD_HASH
         users[role_name] = user
 
     # Disabled user
@@ -94,6 +100,10 @@ async def seed_test_data(db: AsyncSession) -> dict:
             is_active=False,
         )
         db.add(user)
+    else:
+        user.role_id = SEED_ROLE_IDS["navigator"]
+        user.is_active = False
+        user.password_hash = TEST_PASSWORD_HASH
     users["disabled"] = user
 
     await db.flush()
@@ -203,6 +213,15 @@ async def seed_test_data(db: AsyncSession) -> dict:
     await db.flush()
 
     return {"users": users, "patients": patients, "cases": cases}
+
+
+async def cleanup_test_artifacts(db: AsyncSession) -> None:
+    """Remove non-seed users and refresh tokens created by registration tests."""
+    seed_user_ids = list(SEED_USER_IDS.values())
+    await db.execute(
+        delete(User).where(User.id.notin_(seed_user_ids))
+    )
+    await db.flush()
 
 
 def _get_permissions(role_name: str) -> dict:

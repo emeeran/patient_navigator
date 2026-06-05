@@ -23,7 +23,7 @@ SCHEMA_FILE = "Role.schema.json"
 @pytest.fixture
 def role_schema():
     """Load the Role JSON Schema."""
-    with open(SCHEMAS_DIR / SCHEMA_FILE, "r", encoding="utf-8") as f:
+    with open(SCHEMAS_DIR / SCHEMA_FILE, encoding="utf-8") as f:
         return json.load(f)
 
 

@@ -23,7 +23,7 @@ SCHEMA_FILE = "FollowUp.schema.json"
 @pytest.fixture
 def followup_schema():
     """Load the FollowUp JSON Schema."""
-    with open(SCHEMAS_DIR / SCHEMA_FILE, "r", encoding="utf-8") as f:
+    with open(SCHEMAS_DIR / SCHEMA_FILE, encoding="utf-8") as f:
         return json.load(f)
 
 

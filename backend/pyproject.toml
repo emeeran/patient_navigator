@@ -10,6 +10,7 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "sqlalchemy[asyncio]>=2.0",
     "asyncpg>=0.30",
+    "psycopg2-binary>=2.9",
     "alembic>=1.13",
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
@@ -60,7 +61,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
-ignore = ["E501", "B008", "N818"]
+ignore = ["E501", "B008", "N802", "N818", "N999"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

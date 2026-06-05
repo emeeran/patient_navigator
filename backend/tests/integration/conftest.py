@@ -17,26 +17,34 @@ from app.core.database import Base, get_db
 # ── Test database URL ─────────────────────────────────
 TEST_DATABASE_URL = settings.DATABASE_URL.replace("/patient_nav", "/patient_nav_test")
 
-_seeded = False
+_tables_created = False
 
 
 async def _ensure_seeded(engine):
-    """Create tables and seed data (once per process)."""
-    global _seeded
-    if _seeded:
-        return
-    async with engine.begin() as conn:
-        # Enable pg_trgm extension for GIN trigram fuzzy search indexes
-        await conn.execute(
-            __import__("sqlalchemy").text("CREATE EXTENSION IF NOT EXISTS pg_trgm")
-        )
-        await conn.run_sync(Base.metadata.create_all)
+    """Create tables (once per process) and ensure seed data is correct (every time).
+
+    Seed data is refreshed each call because integration tests (e.g. auth RBAC)
+    may mutate seeded users via admin endpoints. The seed function is idempotent:
+    it creates missing records and updates existing ones to match expected state.
+    """
+    global _tables_created
+    if not _tables_created:
+        async with engine.begin() as conn:
+            # Enable pg_trgm extension for GIN trigram fuzzy search indexes
+            await conn.execute(
+                __import__("sqlalchemy").text("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+            )
+            await conn.run_sync(Base.metadata.create_all)
+        _tables_created = True
+
+    # Always re-seed to fix any mutations from previous tests
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
-        from tests.seed import seed_test_data
+        from tests.seed import cleanup_test_artifacts, seed_test_data
+
+        await cleanup_test_artifacts(session)
         await seed_test_data(session)
         await session.commit()
-    _seeded = True
 
 
 @pytest_asyncio.fixture
@@ -138,10 +146,9 @@ def pytest_configure(config):
 
 
 # ── Seeded entity ID fixtures ─────────────────────────
-
 import uuid as _uuid
 
-from tests.seed import SEED_CASE_IDS, SEED_PATIENT_IDS
+from tests.seed import SEED_CASE_IDS, SEED_PATIENT_IDS  # noqa: E402
 
 
 @pytest.fixture

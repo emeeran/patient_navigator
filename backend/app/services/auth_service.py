@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from jose import JWTError
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.exceptions import (
@@ -287,7 +288,9 @@ class AuthService:
         if not user_id:
             raise InvalidTokenError()
 
-        result = await self.db.execute(select(User).where(User.id == user_id))
+        result = await self.db.execute(
+            select(User).where(User.id == user_id).options(selectinload(User.role))
+        )
         user = result.scalar_one_or_none()
         if not user:
             raise InvalidTokenError()

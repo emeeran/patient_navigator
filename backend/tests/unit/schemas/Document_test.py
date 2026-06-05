@@ -23,7 +23,7 @@ SCHEMA_FILE = "Document.schema.json"
 @pytest.fixture
 def document_schema():
     """Load the Document JSON Schema."""
-    with open(SCHEMAS_DIR / SCHEMA_FILE, "r", encoding="utf-8") as f:
+    with open(SCHEMAS_DIR / SCHEMA_FILE, encoding="utf-8") as f:
         return json.load(f)
 
 

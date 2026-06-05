@@ -1,10 +1,9 @@
 """Pydantic schemas for Document endpoints — DATA-005, API-030..037."""
 
 from datetime import datetime
-from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 # ── Enums ──────────────────────────────────────────────
 FILE_TYPE_VALUES = ("pdf", "jpg", "jpeg", "png", "docx")
