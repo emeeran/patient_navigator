@@ -10,6 +10,10 @@ import type {
   AIResponse,
   DocumentPreview,
   OCRResult,
+  UserListResponse,
+  SettingsResponse,
+  SettingsUpdateResponse,
+  ServiceHealthResponse,
 } from "../types";
 
 // ── Patients ────────────────────────────────────────────
@@ -129,4 +133,33 @@ export const aiApi = {
       case_id: caseId,
       context,
     }),
+};
+
+// ── Admin ──────────────────────────────────────────────
+export const adminApi = {
+  listUsers: (params?: Record<string, unknown>) =>
+    api.get<UserListResponse>("/admin/users", { params }),
+  createUser: (data: {
+    email: string;
+    password: string;
+    full_name: string;
+    role: string;
+    phone?: string;
+  }) => api.post("/admin/users", data),
+  updateUser: (id: string, data: {
+    role?: string;
+    is_active?: boolean;
+    full_name?: string;
+    phone?: string;
+  }) => api.patch(`/admin/users/${id}`, data),
+  resetUserPassword: (id: string, new_password: string) =>
+    api.post(`/admin/users/${id}/reset-password`, { new_password }),
+  auditLog: (params?: Record<string, unknown>) =>
+    api.get("/admin/audit-log", { params }),
+  getSettings: () =>
+    api.get<SettingsResponse>("/admin/settings"),
+  updateSettings: (updates: Record<string, string>) =>
+    api.put<SettingsUpdateResponse>("/admin/settings", { updates }),
+  getServiceHealth: () =>
+    api.get<ServiceHealthResponse>("/admin/settings/health"),
 };

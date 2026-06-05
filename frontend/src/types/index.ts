@@ -147,3 +147,48 @@ export interface DocumentPreview {
   created_at: string;
   updated_at: string;
 }
+
+export interface UserListItem {
+  id: string;
+  email: string;
+  full_name: string;
+  phone: string | null;
+  role: string;
+  is_active: boolean;
+  last_login_at: string | null;
+}
+
+export interface UserListResponse {
+  items: UserListItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface SettingItem {
+  key: string;
+  value: string;
+  display_value: string;
+  type: "str" | "int" | "bool";
+  group_name: string;
+  editable: boolean;
+  sensitive: boolean;
+  source: "database" | "default";
+}
+
+export interface SettingsResponse {
+  settings: SettingItem[];
+  groups: Record<string, string>;
+}
+
+export interface SettingsUpdateResponse {
+  updated: string[];
+  message: string;
+}
+
+export interface ServiceHealthResponse {
+  postgres: string;
+  redis: string;
+  ollama: string;
+  ollama_models: string[] | null;
+}

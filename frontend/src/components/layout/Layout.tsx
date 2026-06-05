@@ -9,6 +9,7 @@ const navItems = [
   { to: "/funding", label: "Funding" },
   { to: "/follow-ups", label: "Follow-Ups" },
   { to: "/ai-assistant", label: "AI Assistant" },
+  { to: "/settings", label: "Settings" },
 ];
 
 const adminNavItems = [

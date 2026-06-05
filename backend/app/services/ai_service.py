@@ -5,14 +5,12 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.exceptions import NotFoundError
 from app.models.case import Case
 from app.models.document import Document
 
 logger = logging.getLogger(__name__)
-
-OLLAMA_BASE_URL = "http://localhost:11434"
-DEFAULT_MODEL = "medgemma:4b"
 
 MEDICAL_DISCLAIMER = (
     "This AI-generated content is for informational purposes only. "
@@ -67,7 +65,7 @@ class AIService:
         return {
             "content": content,
             "disclaimer": MEDICAL_DISCLAIMER,
-            "model": model or DEFAULT_MODEL,
+            "model": model or settings.DEFAULT_MODEL,
         }
 
     async def explain_terms(self, text: str, model: str | None = None) -> dict:
@@ -81,7 +79,7 @@ class AIService:
         return {
             "content": content,
             "disclaimer": MEDICAL_DISCLAIMER,
-            "model": model or DEFAULT_MODEL,
+            "model": model or settings.DEFAULT_MODEL,
         }
 
     async def suggest_specialist(
@@ -102,7 +100,7 @@ class AIService:
         return {
             "content": content,
             "disclaimer": MEDICAL_DISCLAIMER,
-            "model": model or DEFAULT_MODEL,
+            "model": model or settings.DEFAULT_MODEL,
         }
 
     async def generate_questions(
@@ -127,7 +125,7 @@ class AIService:
         return {
             "content": content,
             "disclaimer": MEDICAL_DISCLAIMER,
-            "model": model or DEFAULT_MODEL,
+            "model": model or settings.DEFAULT_MODEL,
         }
 
 
@@ -138,11 +136,11 @@ async def _call_ollama(prompt: str, model: str | None = None) -> str:
     """
     import httpx
 
-    model = model or DEFAULT_MODEL
+    model = model or settings.DEFAULT_MODEL
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=float(settings.OLLAMA_TIMEOUT)) as client:
             response = await client.post(
-                f"{OLLAMA_BASE_URL}/api/generate",
+                f"{settings.OLLAMA_BASE_URL}/api/generate",
                 json={
                     "model": model,
                     "prompt": prompt,

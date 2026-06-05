@@ -60,6 +60,58 @@ class UserUpdateRequest(BaseModel):
         return self
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., min_length=1, description="Current password for verification")
+    new_password: str = Field(
+        ...,
+        min_length=8,
+        max_length=128,
+        description="New password: min 8 chars, upper, lower, digit, special",
+    )
+
+    @model_validator(mode="after")
+    def validate_password_complexity(self):
+        if not re.search(PASSWORD_PATTERN, self.new_password):
+            raise ValueError(
+                "Password must contain at least one uppercase letter, "
+                "one lowercase letter, one digit, and one special character"
+            )
+        return self
+
+
+class AdminResetPasswordRequest(BaseModel):
+    new_password: str = Field(
+        ...,
+        min_length=8,
+        max_length=128,
+        description="New password: min 8 chars, upper, lower, digit, special",
+    )
+
+    @model_validator(mode="after")
+    def validate_password_complexity(self):
+        if not re.search(PASSWORD_PATTERN, self.new_password):
+            raise ValueError(
+                "Password must contain at least one uppercase letter, "
+                "one lowercase letter, one digit, and one special character"
+            )
+        return self
+
+
+class UserProfileUpdateRequest(BaseModel):
+    full_name: str | None = Field(None, min_length=1, max_length=255)
+    phone: str | None = Field(None, max_length=20)
+
+    @model_validator(mode="after")
+    def at_least_one_field(self):
+        if all(v is None for v in [self.full_name, self.phone]):
+            raise ValueError("At least one field must be provided")
+        return self
+
+
+class ChangePasswordResponse(BaseModel):
+    message: str = "Password changed successfully"
+
+
 # ── Response schemas ──────────────────────────────────
 
 class UserProfile(BaseModel):

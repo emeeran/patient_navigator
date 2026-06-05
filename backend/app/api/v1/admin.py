@@ -3,20 +3,42 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_permission
 from app.core.database import get_db
+from app.core.security import hash_password
 from app.models.audit_log import AuditLog
 from app.models.role import Role
 from app.models.user import User
 from app.schemas.audit import AuditLogEntry, AuditLogListResponse
-from app.schemas.auth import UserListItem, UserListResponse, UserUpdateRequest
+from app.schemas.auth import (
+    AdminResetPasswordRequest,
+    RegisterRequest,
+    UserListItem,
+    UserListResponse,
+    UserUpdateRequest,
+)
+from app.schemas.settings import (
+    ServiceHealthResponse,
+    SettingsResponse,
+    SettingsUpdateRequest,
+    SettingsUpdateResponse,
+)
 from app.services.auth_service import AuthService, write_audit_log
+from app.services.settings_service import GROUP_LABELS, SettingsService
 
 router = APIRouter()
+
+
+def _get_ip(request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 
 @router.get("/users")
@@ -62,6 +84,28 @@ async def list_users(
         page=page,
         limit=limit,
     )
+
+
+@router.post("/users", status_code=201)
+async def create_user(
+    data: RegisterRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("users", "full")),
+):
+    """API: Create a new user (admin only)."""
+    service = AuthService(db)
+    user = await service.register(data, current_user.id, ip_address=_get_ip(request))
+    return {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "phone": user.phone,
+        "role": user.role.name,
+        "permissions": user.role.permissions,
+        "is_active": user.is_active,
+        "last_login_at": None,
+    }
 
 
 @router.patch("/users/{user_id}")
@@ -125,6 +169,76 @@ async def update_user(
         "is_active": user.is_active,
         "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
     }
+
+
+@router.post("/users/{user_id}/reset-password")
+async def admin_reset_password(
+    user_id: uuid.UUID,
+    data: AdminResetPasswordRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("users", "full")),
+):
+    """API: Admin reset a user's password."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password_hash = hash_password(data.new_password)
+
+    service = AuthService(db)
+    await service.revoke_all_user_tokens(user.id)
+    await write_audit_log(
+        db,
+        action="user.password_reset",
+        user_id=current_user.id,
+        entity_type="user",
+        entity_id=user.id,
+        description=f"Admin reset password for {user.email}",
+        ip_address=_get_ip(request),
+    )
+    await db.flush()
+
+    return {"message": "Password reset successfully"}
+
+
+# ── System Settings ──────────────────────────────────────
+
+
+@router.get("/settings")
+async def get_settings(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+) -> SettingsResponse:
+    """API: Get all system settings grouped."""
+    service = SettingsService(db)
+    items = await service.get_all_settings()
+    return SettingsResponse(settings=items, groups=GROUP_LABELS)
+
+
+@router.put("/settings")
+async def update_settings(
+    data: SettingsUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+) -> SettingsUpdateResponse:
+    """API: Update editable system settings."""
+    service = SettingsService(db)
+    updated = await service.update_settings(data.updates, current_user.id)
+    return SettingsUpdateResponse(updated=updated)
+
+
+@router.get("/settings/health")
+async def settings_health(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+) -> ServiceHealthResponse:
+    """API: Check connectivity to PostgreSQL, Redis, and Ollama."""
+    service = SettingsService(db)
+    health = await service.check_service_health()
+    return ServiceHealthResponse(**health)
 
 
 @router.get("/audit-log")

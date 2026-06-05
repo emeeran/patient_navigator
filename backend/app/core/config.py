@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads/documents"
     MAX_UPLOAD_SIZE_BYTES: int = 26_214_400  # 25MB
 
+    # ── AI / LLM ────────────────────────────────────────
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    DEFAULT_MODEL: str = "medgemma:4b"
+    OLLAMA_TIMEOUT: int = 60
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]

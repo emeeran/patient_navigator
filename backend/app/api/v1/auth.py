@@ -7,12 +7,15 @@ from app.api.deps import get_current_active_user
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.auth import (
+    ChangePasswordRequest,
     LoginRequest,
     LogoutRequest,
     RefreshRequest,
     RegisterRequest,
+    UserProfileUpdateRequest,
 )
-from app.services.auth_service import AuthService
+from app.core.security import hash_password, verify_password
+from app.services.auth_service import AuthService, write_audit_log
 from app.services.rate_limiter import check_rate_limit, clear_rate_limit, record_failed_attempt
 
 router = APIRouter()
@@ -108,3 +111,47 @@ def _serialize_user_profile(user: User) -> dict:
         "is_active": user.is_active,
         "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
     }
+
+
+@router.post("/change-password")
+async def change_password(
+    data: ChangePasswordRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """API: Change the current user's password."""
+    if not verify_password(data.current_password, current_user.password_hash):
+        from app.core.exceptions import InvalidCredentialsError
+        raise InvalidCredentialsError("Current password is incorrect")
+
+    current_user.password_hash = hash_password(data.new_password)
+
+    service = AuthService(db)
+    await service.revoke_all_user_tokens(current_user.id)
+    await write_audit_log(
+        db,
+        action="user.password_changed",
+        user_id=current_user.id,
+        description="User changed their password",
+        ip_address=_get_ip(request),
+    )
+    await db.flush()
+
+    return {"message": "Password changed successfully. Please log in again."}
+
+
+@router.patch("/me")
+async def update_profile(
+    data: UserProfileUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """API: Update the current user's profile (name, phone)."""
+    if data.full_name is not None:
+        current_user.full_name = data.full_name
+    if data.phone is not None:
+        current_user.phone = data.phone
+
+    await db.flush()
+    return _serialize_user_profile(current_user)

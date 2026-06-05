@@ -7,6 +7,7 @@ from app.models.funding_program import FundingProgram
 from app.models.patient import Patient
 from app.models.refresh_token import RefreshToken
 from app.models.role import Role
+from app.models.system_setting import SystemSetting
 from app.models.timeline_event import TimelineEvent
 from app.models.user import User
 
@@ -20,4 +21,5 @@ __all__ = [
     "TimelineEvent",
     "Document",
     "FundingProgram",
+    "SystemSetting",
 ]

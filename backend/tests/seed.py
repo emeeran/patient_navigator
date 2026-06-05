@@ -231,6 +231,7 @@ def _get_permissions(role_name: str) -> dict:
             "patients": "full", "cases": "full", "documents": "full",
             "hospitals": "full", "funding": "full", "followups": "full",
             "ai": "full", "reports": "full", "users": "full", "audit": "full",
+            "settings": "full",
         },
         "navigator": {
             "patients": "full", "cases": "full", "documents": "full",
