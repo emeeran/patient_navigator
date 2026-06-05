@@ -3,7 +3,8 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,12 +23,18 @@ from app.schemas.auth import (
     UserUpdateRequest,
 )
 from app.schemas.settings import (
+    DatabaseIntegrityResponse,
+    DatabaseRepairResponse,
+    DatabaseResetResponse,
+    DatabaseRestoreResponse,
     ServiceHealthResponse,
     SettingsResponse,
     SettingsUpdateRequest,
     SettingsUpdateResponse,
 )
 from app.services.auth_service import AuthService, write_audit_log
+from app.services.db_maintenance_service import DbMaintenanceService
+from app.services.scraper_service import ScraperService
 from app.services.settings_service import GROUP_LABELS, SettingsService
 
 router = APIRouter()
@@ -241,6 +248,82 @@ async def settings_health(
     return ServiceHealthResponse(**health)
 
 
+# ── Data Scraping & Import ───────────────────────────────
+
+
+@router.post("/scrape/hospitals")
+async def scrape_hospitals(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+):
+    """API: Scrape hospital listings from a TN district page. Returns preview only."""
+    url = data.get("url", "").strip()
+    if not url:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="URL is required")
+    if ".nic.in" not in url:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Only .nic.in district URLs are supported")
+
+    service = ScraperService(db)
+    records = await service.scrape_tn_district(url)
+    return {"records": records, "count": len(records)}
+
+
+@router.post("/import/hospitals")
+async def import_hospitals(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+):
+    """API: Bulk import hospitals from a JSON array."""
+    hospitals = data.get("hospitals", [])
+    if not hospitals:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="No hospitals provided")
+
+    service = ScraperService(db)
+    result = await service.bulk_import_hospitals(hospitals, current_user.id)
+    return result
+
+
+@router.post("/import/hospitals/csv")
+async def import_hospitals_csv(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+):
+    """API: Import hospitals from a CSV file."""
+    content = await file.read()
+    service = ScraperService(db)
+    records, parse_errors = service.parse_hospitals_csv(content)
+    if not records:
+        return {"imported": 0, "skipped": 0, "errors": parse_errors or ["No valid records found"]}
+
+    result = await service.bulk_import_hospitals(records, current_user.id)
+    result["errors"].extend(parse_errors)
+    return result
+
+
+@router.post("/import/ngos/csv")
+async def import_ngos_csv(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+):
+    """API: Import NGOs/funding programs from a CSV file."""
+    content = await file.read()
+    service = ScraperService(db)
+    records, parse_errors = service.parse_ngos_csv(content)
+    if not records:
+        return {"imported": 0, "skipped": 0, "errors": parse_errors or ["No valid records found"]}
+
+    result = await service.bulk_import_ngos(records, current_user.id)
+    result["errors"].extend(parse_errors)
+    return result
+
+
 @router.get("/audit-log")
 async def list_audit_log(
     page: int = Query(1, ge=1),
@@ -293,3 +376,87 @@ async def list_audit_log(
         page=page,
         limit=limit,
     )
+
+
+# ── Database Maintenance ─────────────────────────────────
+
+
+@router.get("/database/integrity")
+async def database_integrity(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+) -> DatabaseIntegrityResponse:
+    """API: Check database table integrity and health."""
+    service = DbMaintenanceService(db)
+    result = await service.integrity_check()
+    return DatabaseIntegrityResponse(**result)
+
+
+@router.post("/database/backup")
+async def database_backup(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+):
+    """API: Download a full database backup (pg_dump)."""
+    service = DbMaintenanceService(db)
+
+    await write_audit_log(
+        db, action="database.backup", user_id=current_user.id,
+        entity_type="database", description="Database backup downloaded",
+    )
+    await db.flush()
+
+    dump_bytes = await service.backup_database()
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"patient_nav_backup_{timestamp}.sql"
+
+    return Response(
+        content=dump_bytes,
+        media_type="application/sql",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/database/restore")
+async def database_restore(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+) -> DatabaseRestoreResponse:
+    """API: Restore database from a SQL dump file."""
+    content = await file.read()
+    if not content:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    service = DbMaintenanceService(db)
+    result = await service.restore_database(current_user.id, content)
+    return DatabaseRestoreResponse(**result)
+
+
+@router.post("/database/repair")
+async def database_repair(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+) -> DatabaseRepairResponse:
+    """API: Run REINDEX and VACUUM on all tables."""
+    service = DbMaintenanceService(db)
+    result = await service.repair_database(current_user.id)
+    return DatabaseRepairResponse(**result)
+
+
+@router.post("/database/reset")
+async def database_reset(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+) -> DatabaseResetResponse:
+    """API: Reset database — drop and recreate all tables. Requires confirm='RESET'."""
+    if data.get("confirm") != "RESET":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Confirmation required. Send {\"confirm\": \"RESET\"}")
+
+    service = DbMaintenanceService(db)
+    result = await service.reset_database(current_user.id)
+    return DatabaseResetResponse(**result)

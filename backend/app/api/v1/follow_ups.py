@@ -121,3 +121,17 @@ async def complete_follow_up(
     service = FollowUpService(db)
     fu = await service.complete(follow_up_id, completed_by=current_user.id)
     return follow_up_to_dict(fu)
+
+
+@router.delete("/followups/{follow_up_id}", status_code=204)
+async def cancel_follow_up(
+    follow_up_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin", "navigator")),
+):
+    """Cancel a follow-up by setting status to 'cancelled'."""
+    service = FollowUpService(db)
+    fu = await service.get_by_id(follow_up_id)
+    fu.status = "cancelled"
+    await db.flush()
+    return None

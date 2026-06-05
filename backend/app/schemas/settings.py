@@ -28,6 +28,39 @@ class SettingsUpdateResponse(BaseModel):
     message: str = "Settings updated successfully"
 
 
+class DatabaseResetResponse(BaseModel):
+    reset_tables: int
+    message: str
+
+
+class DatabaseRepairResult(BaseModel):
+    operation: str
+    table: str
+    status: str
+
+
+class DatabaseRepairResponse(BaseModel):
+    results: list[DatabaseRepairResult]
+    message: str
+
+
+class DatabaseIntegrityTable(BaseModel):
+    name: str
+    row_count: int
+    dead_tuples: int
+    status: str
+    issues: list[str]
+
+
+class DatabaseIntegrityResponse(BaseModel):
+    tables: list[DatabaseIntegrityTable]
+    overall: str
+
+
+class DatabaseRestoreResponse(BaseModel):
+    message: str
+
+
 class ServiceHealthResponse(BaseModel):
     postgres: str
     redis: str

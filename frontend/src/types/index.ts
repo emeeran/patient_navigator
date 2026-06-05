@@ -192,3 +192,45 @@ export interface ServiceHealthResponse {
   ollama: string;
   ollama_models: string[] | null;
 }
+
+export interface ScrapeResponse {
+  records: ScrapedHospital[];
+  count: number;
+}
+
+export interface ScrapedHospital {
+  name: string;
+  city: string;
+  state: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  specialties: string | null;
+  has_financial_assistance: boolean;
+}
+
+export interface BulkImportResponse {
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+
+export interface DatabaseResetResponse {
+  reset_tables: number;
+  message: string;
+}
+
+export interface DatabaseRepairResponse {
+  results: { operation: string; table: string; status: string }[];
+  message: string;
+}
+
+export interface DatabaseIntegrityResponse {
+  tables: { name: string; row_count: number; dead_tuples: number; status: string; issues: string[] }[];
+  overall: string;
+}
+
+export interface DatabaseRestoreResponse {
+  message: string;
+}

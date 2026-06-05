@@ -123,3 +123,21 @@ def funding_program_list_item_to_dict(fp: object) -> dict:
         "is_active": fp.is_active,
         "created_at": fp.created_at,
     }
+
+
+# ── Bulk Import schema ───────────────────────────────────
+
+
+class NGOImportItem(BaseModel):
+    """A single NGO/funding program record for bulk import."""
+
+    name: str = Field(..., min_length=1, max_length=255)
+    description: str | None = None
+    provider: str | None = Field(None, max_length=255)
+    program_type: str | None = Field(None, max_length=50)
+    eligibility_criteria: str | None = None
+    max_amount: float | None = Field(None, ge=0)
+    min_amount: float | None = Field(None, ge=0)
+    application_url: str | None = Field(None, max_length=500)
+    contact_email: str | None = None
+    contact_phone: str | None = Field(None, max_length=20)

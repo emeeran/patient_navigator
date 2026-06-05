@@ -164,6 +164,23 @@ async def get_case_timeline(
     ).model_dump()
 
 
+@router.delete("/cases/{case_id}", status_code=204)
+async def delete_case(
+    case_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """Soft-delete a case (admin only)."""
+    from datetime import UTC, datetime
+
+    service = CaseService(db)
+    case = await service.get_by_id(case_id)
+    case.deleted_at = datetime.now(UTC)
+    await db.flush()
+    return None
+
+
 def _get_ip(request: Request) -> str:
     """Extract client IP from request."""
     forwarded = request.headers.get("X-Forwarded-For")

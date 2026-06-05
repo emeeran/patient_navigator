@@ -14,6 +14,13 @@ import type {
   SettingsResponse,
   SettingsUpdateResponse,
   ServiceHealthResponse,
+  ScrapeResponse,
+  ScrapedHospital,
+  BulkImportResponse,
+  DatabaseResetResponse,
+  DatabaseRepairResponse,
+  DatabaseIntegrityResponse,
+  DatabaseRestoreResponse,
 } from "../types";
 
 // ── Patients ────────────────────────────────────────────
@@ -42,6 +49,8 @@ export const casesApi = {
     api.patch<Case>(`/cases/${id}/status`, { status }),
   timeline: (id: string) =>
     api.get<{ items: { id: string; action: string; description: string; created_at: string }[] }>(`/cases/${id}/timeline`),
+  archive: (id: string) =>
+    api.delete(`/cases/${id}`),
 };
 
 // ── Reviews ──────────────────────────────────────────
@@ -112,6 +121,8 @@ export const followUpsApi = {
     api.put<FollowUp>(`/followups/${id}`, data),
   complete: (id: string) =>
     api.post<FollowUp>(`/followups/${id}/complete`),
+  cancel: (id: string) =>
+    api.delete(`/followups/${id}`),
 };
 
 // ── AI ─────────────────────────────────────────────────
@@ -162,4 +173,39 @@ export const adminApi = {
     api.put<SettingsUpdateResponse>("/admin/settings", { updates }),
   getServiceHealth: () =>
     api.get<ServiceHealthResponse>("/admin/settings/health"),
+  scrapeHospitals: (url: string) =>
+    api.post<ScrapeResponse>("/admin/scrape/hospitals", { url }),
+  importHospitals: (hospitals: Record<string, unknown>[] | ScrapedHospital[]) =>
+    api.post<BulkImportResponse>("/admin/import/hospitals", { hospitals }),
+  importHospitalsCSV: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.post<BulkImportResponse>("/admin/import/hospitals/csv", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  importNgosCSV: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.post<BulkImportResponse>("/admin/import/ngos/csv", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
+  // ── Database Maintenance ──────────────────────────────
+  dbIntegrity: () =>
+    api.get<DatabaseIntegrityResponse>("/admin/database/integrity"),
+  dbBackup: () =>
+    api.post("/admin/database/backup", null, { responseType: "blob" }),
+  dbRestore: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.post<DatabaseRestoreResponse>("/admin/database/restore", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  dbRepair: () =>
+    api.post<DatabaseRepairResponse>("/admin/database/repair"),
+  dbReset: () =>
+    api.post<DatabaseResetResponse>("/admin/database/reset", { confirm: "RESET" }),
 };

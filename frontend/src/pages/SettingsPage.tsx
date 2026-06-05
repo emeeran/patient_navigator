@@ -2,15 +2,17 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { authApi } from "../api/auth";
 import { adminApi } from "../api/index";
-import type { UserListItem, SettingItem, ServiceHealthResponse } from "../types";
+import type { UserListItem, SettingItem, ServiceHealthResponse, ScrapedHospital, BulkImportResponse, DatabaseIntegrityResponse, DatabaseRepairResponse, DatabaseResetResponse, DatabaseRestoreResponse } from "../types";
 
-type Tab = "profile" | "password" | "users" | "configuration";
+type Tab = "profile" | "password" | "users" | "configuration" | "import" | "database";
 
 const TABS: { key: Tab; label: string; adminOnly: boolean }[] = [
   { key: "profile", label: "My Profile", adminOnly: false },
   { key: "password", label: "Change Password", adminOnly: false },
   { key: "users", label: "User Management", adminOnly: true },
   { key: "configuration", label: "Configuration", adminOnly: true },
+  { key: "import", label: "Data Import", adminOnly: true },
+  { key: "database", label: "Database", adminOnly: true },
 ];
 
 const ROLES = ["admin", "navigator", "clinician", "volunteer", "patient"];
@@ -47,6 +49,8 @@ export default function SettingsPage() {
       {activeTab === "password" && <PasswordSection />}
       {activeTab === "users" && isAdmin && <UserManagementSection />}
       {activeTab === "configuration" && isAdmin && <ConfigurationSection />}
+      {activeTab === "import" && isAdmin && <DataImportSection />}
+      {activeTab === "database" && isAdmin && <DatabaseSection />}
     </div>
   );
 }
@@ -681,6 +685,553 @@ function ConfigurationSection() {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── Data Import Section ────────────────────────────────
+
+function DataImportSection() {
+  // Scrape state
+  const [scrapeUrl, setScrapeUrl] = useState("https://karur.nic.in/public-utility-category/hospitals/");
+  const [scrapeLoading, setScrapeLoading] = useState(false);
+  const [scrapedRecords, setScrapedRecords] = useState<ScrapedHospital[]>([]);
+  const [selectedRecords, setSelectedRecords] = useState<Set<number>>(new Set());
+  const [scrapeError, setScrapeError] = useState("");
+  const [importResult, setImportResult] = useState<BulkImportResponse | null>(null);
+
+  // CSV hospital state
+  const [hospitalFile, setHospitalFile] = useState<File | null>(null);
+  const [hospitalUploading, setHospitalUploading] = useState(false);
+  const [hospitalResult, setHospitalResult] = useState<BulkImportResponse | null>(null);
+  const [hospitalError, setHospitalError] = useState("");
+
+  // CSV NGO state
+  const [ngoFile, setNgoFile] = useState<File | null>(null);
+  const [ngoUploading, setNgoUploading] = useState(false);
+  const [ngoResult, setNgoResult] = useState<BulkImportResponse | null>(null);
+  const [ngoError, setNgoError] = useState("");
+
+  const handleScrape = async () => {
+    setScrapeLoading(true);
+    setScrapeError("");
+    setScrapedRecords([]);
+    setSelectedRecords(new Set());
+    setImportResult(null);
+    try {
+      const { data } = await adminApi.scrapeHospitals(scrapeUrl);
+      setScrapedRecords(data.records);
+      setSelectedRecords(new Set(data.records.map((_: unknown, i: number) => i)));
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setScrapeError(msg || "Failed to scrape page.");
+    } finally {
+      setScrapeLoading(false);
+    }
+  };
+
+  const handleImportScraped = async () => {
+    const toImport = scrapedRecords.filter((_, i) => selectedRecords.has(i));
+    if (toImport.length === 0) return;
+    setScrapeLoading(true);
+    try {
+      const { data } = await adminApi.importHospitals(toImport);
+      setImportResult(data);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setScrapeError(msg || "Failed to import.");
+    } finally {
+      setScrapeLoading(false);
+    }
+  };
+
+  const toggleRecord = (idx: number) => {
+    setSelectedRecords((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return next;
+    });
+  };
+
+  const handleHospitalCSV = async () => {
+    if (!hospitalFile) return;
+    setHospitalUploading(true);
+    setHospitalError("");
+    setHospitalResult(null);
+    try {
+      const { data } = await adminApi.importHospitalsCSV(hospitalFile);
+      setHospitalResult(data);
+      setHospitalFile(null);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setHospitalError(msg || "Failed to upload CSV.");
+    } finally {
+      setHospitalUploading(false);
+    }
+  };
+
+  const handleNgoCSV = async () => {
+    if (!ngoFile) return;
+    setNgoUploading(true);
+    setNgoError("");
+    setNgoResult(null);
+    try {
+      const { data } = await adminApi.importNgosCSV(ngoFile);
+      setNgoResult(data);
+      setNgoFile(null);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setNgoError(msg || "Failed to upload CSV.");
+    } finally {
+      setNgoUploading(false);
+    }
+  };
+
+  const downloadTemplate = (type: "hospital" | "ngo") => {
+    const headers = type === "hospital"
+      ? "name,city,state,address,phone,email,website,specialties,has_financial_assistance"
+      : "name,description,provider,program_type,eligibility_criteria,max_amount,min_amount,application_url,contact_email,contact_phone";
+    const example = type === "hospital"
+      ? '\nGovernment Hospital, Chennai, Tamil Nadu, "123 Main St, Chennai 600001", 9876543210, info@hosp.org, https://hosp.org, "General Medicine, Surgery", false'
+      : '\nArogya Nidhi Medical Fund,"Provides medical financial assistance for BPL patients",Youth For Seva,ngo,health,500000,10000,,contact@yfs.org,919876543210';
+    const blob = new Blob([headers + example], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${type}_template.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const ImportResultCard = ({ result }: { result: BulkImportResponse | null }) => {
+    if (!result) return null;
+    return (
+      <div className={`p-3 text-sm rounded-lg mt-3 ${result.errors.length > 0 ? "bg-amber-50 text-amber-800" : "bg-green-50 text-green-700"}`}>
+        <p className="font-medium">Imported: {result.imported} | Skipped (duplicates): {result.skipped}</p>
+        {result.errors.length > 0 && (
+          <ul className="mt-1 text-xs list-disc list-inside">{result.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}</ul>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Card 1: Scrape TN Hospitals */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Scrape Tamil Nadu Hospitals</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Enter a TN district .nic.in hospitals page URL to scrape hospital listings.
+        </p>
+        {scrapeError && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg mb-3">{scrapeError}</div>}
+        <div className="flex gap-3">
+          <input type="url" value={scrapeUrl} onChange={(e) => setScrapeUrl(e.target.value)}
+            placeholder="https://district.nic.in/public-utility-category/hospitals/"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+          <button onClick={handleScrape} disabled={scrapeLoading}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
+            {scrapeLoading ? "Scraping..." : "Scrape"}
+          </button>
+        </div>
+
+        {scrapedRecords.length > 0 && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-500">{selectedRecords.size} of {scrapedRecords.length} selected</span>
+              <button onClick={handleImportScraped} disabled={scrapeLoading || selectedRecords.size === 0}
+                className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50">
+                Import Selected ({selectedRecords.size})
+              </button>
+            </div>
+            <div className="overflow-auto max-h-64 border border-gray-200 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 w-8"></th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Name</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">City</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Phone</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Email</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {scrapedRecords.map((r, i) => (
+                    <tr key={i} className={selectedRecords.has(i) ? "bg-blue-50" : ""}>
+                      <td className="px-3 py-2">
+                        <input type="checkbox" checked={selectedRecords.has(i)} onChange={() => toggleRecord(i)} className="rounded" />
+                      </td>
+                      <td className="px-3 py-2 text-gray-900">{r.name}</td>
+                      <td className="px-3 py-2 text-gray-600">{r.city}</td>
+                      <td className="px-3 py-2 text-gray-600">{r.phone || "—"}</td>
+                      <td className="px-3 py-2 text-gray-600 truncate max-w-[180px]">{r.email || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <ImportResultCard result={importResult} />
+          </div>
+        )}
+      </div>
+
+      {/* Card 2: CSV Import Hospitals */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">CSV Import — Hospitals</h3>
+        <p className="text-sm text-gray-500 mb-3">
+          Upload a CSV file with hospital data. <button onClick={() => downloadTemplate("hospital")} className="text-blue-600 hover:underline">Download template</button>
+        </p>
+        {hospitalError && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg mb-3">{hospitalError}</div>}
+        <div className="flex gap-3 items-center">
+          <input type="file" accept=".csv" onChange={(e) => setHospitalFile(e.target.files?.[0] || null)}
+            className="text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+          <button onClick={handleHospitalCSV} disabled={!hospitalFile || hospitalUploading}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            {hospitalUploading ? "Uploading..." : "Upload & Import"}
+          </button>
+        </div>
+        <ImportResultCard result={hospitalResult} />
+      </div>
+
+      {/* Card 3: CSV Import NGOs */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">CSV Import — NGOs / Funding Programs</h3>
+        <p className="text-sm text-gray-500 mb-3">
+          Upload a CSV file with NGO or funding program data. <button onClick={() => downloadTemplate("ngo")} className="text-blue-600 hover:underline">Download template</button>
+        </p>
+        {ngoError && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg mb-3">{ngoError}</div>}
+        <div className="flex gap-3 items-center">
+          <input type="file" accept=".csv" onChange={(e) => setNgoFile(e.target.files?.[0] || null)}
+            className="text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+          <button onClick={handleNgoCSV} disabled={!ngoFile || ngoUploading}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            {ngoUploading ? "Uploading..." : "Upload & Import"}
+          </button>
+        </div>
+        <ImportResultCard result={ngoResult} />
+      </div>
+    </div>
+  );
+}
+
+// ── Database Maintenance Section ────────────────────────
+
+function DatabaseSection() {
+  // Integrity check
+  const [integrity, setIntegrity] = useState<DatabaseIntegrityResponse | null>(null);
+  const [integrityLoading, setIntegrityLoading] = useState(false);
+  const [integrityError, setIntegrityError] = useState("");
+
+  // Backup
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [backupError, setBackupError] = useState("");
+  const [backupSuccess, setBackupSuccess] = useState(false);
+
+  // Restore
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [restoreError, setRestoreError] = useState("");
+  const [restoreResult, setRestoreResult] = useState<DatabaseRestoreResponse | null>(null);
+  const [confirmRestore, setConfirmRestore] = useState(false);
+
+  // Repair
+  const [repairResult, setRepairResult] = useState<DatabaseRepairResponse | null>(null);
+  const [repairLoading, setRepairLoading] = useState(false);
+  const [repairError, setRepairError] = useState("");
+
+  // Reset
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState("");
+  const [resetResult, setResetResult] = useState<DatabaseResetResponse | null>(null);
+  const [confirmResetModal, setConfirmResetModal] = useState(false);
+
+  const handleIntegrity = async () => {
+    setIntegrityLoading(true);
+    setIntegrityError("");
+    try {
+      const { data } = await adminApi.dbIntegrity();
+      setIntegrity(data);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setIntegrityError(msg || "Failed to run integrity check.");
+    } finally {
+      setIntegrityLoading(false);
+    }
+  };
+
+  const handleBackup = async () => {
+    setBackupLoading(true);
+    setBackupError("");
+    setBackupSuccess(false);
+    try {
+      const { data } = await adminApi.dbBackup();
+      const blob = new Blob([data as unknown as BlobPart], { type: "application/sql" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `patient_nav_backup_${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.sql`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setBackupSuccess(true);
+      setTimeout(() => setBackupSuccess(false), 3000);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setBackupError(msg || "Failed to create backup.");
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!restoreFile) return;
+    setRestoreLoading(true);
+    setRestoreError("");
+    setRestoreResult(null);
+    try {
+      const { data } = await adminApi.dbRestore(restoreFile);
+      setRestoreResult(data);
+      setRestoreFile(null);
+      setConfirmRestore(false);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setRestoreError(msg || "Failed to restore database.");
+    } finally {
+      setRestoreLoading(false);
+    }
+  };
+
+  const handleRepair = async () => {
+    setRepairLoading(true);
+    setRepairError("");
+    setRepairResult(null);
+    try {
+      const { data } = await adminApi.dbRepair();
+      setRepairResult(data);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setRepairError(msg || "Failed to repair database.");
+    } finally {
+      setRepairLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    setResetLoading(true);
+    setResetError("");
+    setResetResult(null);
+    try {
+      const { data } = await adminApi.dbReset();
+      setResetResult(data);
+      setConfirmResetModal(false);
+      setResetConfirm("");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setResetError(msg || "Failed to reset database.");
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* 1. Integrity Check */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Integrity Check</h3>
+            <p className="text-sm text-gray-500">Check table health, dead tuples, and estimated row counts.</p>
+          </div>
+          <button onClick={handleIntegrity} disabled={integrityLoading}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            {integrityLoading ? "Checking..." : "Run Check"}
+          </button>
+        </div>
+        {integrityError && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg mb-3">{integrityError}</div>}
+        {integrity && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${
+                integrity.overall === "healthy" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+              }`}>
+                {integrity.overall === "healthy" ? "✓ All tables healthy" : "⚠ Issues found"}
+              </span>
+              <span className="text-xs text-gray-500">{integrity.tables.length} tables checked</span>
+            </div>
+            <div className="overflow-auto max-h-64 border border-gray-200 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Table</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-600">Est. Rows</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-600">Dead Tuples</th>
+                    <th className="text-center px-3 py-2 font-medium text-gray-600">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {integrity.tables.map((t) => (
+                    <tr key={t.name} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 text-gray-900 font-mono text-xs">{t.name}</td>
+                      <td className="px-3 py-2 text-gray-600 text-right">{t.row_count.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{t.dead_tuples > 0 ? (
+                        <span className="text-amber-600">{t.dead_tuples.toLocaleString()}</span>
+                      ) : (
+                        <span className="text-gray-400">0</span>
+                      )}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                          t.status === "healthy" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                        }`}>
+                          {t.status === "healthy" ? "✓" : "⚠"} {t.status.replace("_", " ")}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 2. Backup */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Backup</h3>
+            <p className="text-sm text-gray-500">Download a full SQL dump of the database.</p>
+          </div>
+          <button onClick={handleBackup} disabled={backupLoading}
+            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50">
+            {backupLoading ? "Creating Backup..." : "Download Backup"}
+          </button>
+        </div>
+        {backupError && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg mt-3">{backupError}</div>}
+        {backupSuccess && <div className="p-3 bg-green-50 text-green-700 text-sm rounded-lg mt-3">Backup downloaded successfully.</div>}
+      </div>
+
+      {/* 3. Restore */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">Restore</h3>
+        <p className="text-sm text-gray-500 mb-3">Upload a SQL dump to restore the database. This will overwrite existing data.</p>
+        {restoreError && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg mb-3">{restoreError}</div>}
+        {restoreResult && <div className="p-3 bg-green-50 text-green-700 text-sm rounded-lg mb-3">{restoreResult.message}</div>}
+        <div className="flex gap-3 items-center">
+          <input type="file" accept=".sql,.dump,.backup" onChange={(e) => { setRestoreFile(e.target.files?.[0] || null); setRestoreResult(null); }}
+            className="text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+          <button onClick={() => setConfirmRestore(true)} disabled={!restoreFile || restoreLoading}
+            className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 disabled:opacity-50">
+            {restoreLoading ? "Restoring..." : "Restore"}
+          </button>
+        </div>
+
+        {/* Restore Confirmation Modal */}
+        {confirmRestore && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmRestore(false)} />
+            <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+              <h3 className="text-lg font-semibold mb-2">⚠️ Restore Database?</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                This will overwrite all current data with the uploaded backup. This cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setConfirmRestore(false)} className="px-4 py-2 text-sm text-gray-600">Cancel</button>
+                <button onClick={handleRestore}
+                  className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">Restore</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 4. Repair */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Repair</h3>
+            <p className="text-sm text-gray-500">Run REINDEX and VACUUM ANALYZE on all tables.</p>
+          </div>
+          <button onClick={handleRepair} disabled={repairLoading}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+            {repairLoading ? "Repairing..." : "Run Repair"}
+          </button>
+        </div>
+        {repairError && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg mb-3">{repairError}</div>}
+        {repairResult && (
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">{repairResult.message}</p>
+            <div className="overflow-auto max-h-48 border border-gray-200 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Operation</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600">Table</th>
+                    <th className="text-center px-3 py-2 font-medium text-gray-600">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {repairResult.results.map((r, i) => (
+                    <tr key={i} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 text-gray-900 font-mono text-xs">{r.operation}</td>
+                      <td className="px-3 py-2 text-gray-600 font-mono text-xs">{r.table}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                          r.status === "ok" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                        }`}>
+                          {r.status === "ok" ? "✓" : "✗"} {r.status === "ok" ? "OK" : "Error"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 5. Database Reset — Danger Zone */}
+      <div className="bg-white rounded-xl border-2 border-red-200 p-6">
+        <h3 className="text-lg font-semibold text-red-700 mb-1">⚠️ Danger Zone: Database Reset</h3>
+        <p className="text-sm text-red-600 mb-4">
+          This will permanently delete all data and recreate empty tables. This cannot be undone.
+        </p>
+        {resetError && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg mb-3">{resetError}</div>}
+        {resetResult && <div className="p-3 bg-amber-50 text-amber-700 text-sm rounded-lg mb-3">{resetResult.message}</div>}
+        <div className="flex gap-3 items-center">
+          <div className="flex-1">
+            <label className="block text-xs text-gray-500 mb-1">Type RESET to confirm</label>
+            <input type="text" value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)}
+              placeholder="RESET"
+              className="w-full max-w-xs px-3 py-2 border border-red-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 placeholder:text-gray-300" />
+          </div>
+          <button onClick={() => setConfirmResetModal(true)}
+            disabled={resetConfirm !== "RESET" || resetLoading}
+            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 mt-5">
+            Reset Database
+          </button>
+        </div>
+
+        {/* Reset Confirmation Modal */}
+        {confirmResetModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmResetModal(false)} />
+            <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+              <h3 className="text-lg font-semibold text-red-700 mb-2">⚠️ Reset Entire Database?</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                All patients, cases, documents, hospitals, and funding data will be permanently deleted.
+                Only empty table structures will remain.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setConfirmResetModal(false)} className="px-4 py-2 text-sm text-gray-600">Cancel</button>
+                <button onClick={handleReset}
+                  className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
+                  {resetLoading ? "Resetting..." : "Yes, Reset Everything"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

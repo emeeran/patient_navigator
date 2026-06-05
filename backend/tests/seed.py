@@ -51,11 +51,11 @@ TEST_PASSWORD_HASH = hash_password(TEST_PASSWORD)
 
 async def seed_test_data(db: AsyncSession) -> dict:
     """Insert seed roles, users, patients, and cases. Returns a dict of created objects."""
-    # Seed roles (with deterministic IDs)
+    # Seed roles (with deterministic IDs) — create or update permissions
     for name, role_id in SEED_ROLE_IDS.items():
+        permissions = _get_permissions(name)
         role = await db.get(Role, role_id)
         if not role:
-            permissions = _get_permissions(name)
             role = Role(
                 id=role_id,
                 name=name,
@@ -63,6 +63,9 @@ async def seed_test_data(db: AsyncSession) -> dict:
                 permissions=permissions,
             )
             db.add(role)
+        else:
+            # Update permissions in case new resources were added
+            role.permissions = permissions
     await db.flush()
 
     # Seed users (create or update to ensure correct role assignment)

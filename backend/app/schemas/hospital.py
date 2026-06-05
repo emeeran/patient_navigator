@@ -121,3 +121,28 @@ def hospital_list_item_to_dict(h: object) -> dict:
         "is_active": h.is_active,
         "created_at": h.created_at,
     }
+
+
+# ── Bulk Import schemas ──────────────────────────────────
+
+
+class HospitalImportItem(BaseModel):
+    """A single hospital record for bulk import."""
+
+    name: str
+    city: str
+    state: str | None = None
+    address: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    website: str | None = None
+    specialties: str | None = None
+    has_financial_assistance: bool = False
+
+
+class BulkImportResponse(BaseModel):
+    """Response for bulk import operations."""
+
+    imported: int
+    skipped: int
+    errors: list[str]

@@ -93,7 +93,7 @@ export default function CaseDetailPage() {
     setOcrLoading(docId);
     try {
       const { data } = await documentsApi.triggerOcr(docId);
-      if (data.ocr_text) setOcrTexts((prev) => ({ ...prev, [docId]: data.ocr_text }));
+      if (data.ocr_text) setOcrTexts((prev) => ({ ...prev, [docId]: data.ocr_text! }));
       const docsRes = await documentsApi.list(caseId!, { per_page: 100 });
       setDocuments(docsRes.data.items);
     } catch { /* ignore */ }
@@ -107,7 +107,7 @@ export default function CaseDetailPage() {
     }
     try {
       const { data } = await documentsApi.preview(docId);
-      if (data.ocr_text) setOcrTexts((prev) => ({ ...prev, [docId]: data.ocr_text }));
+      if (data.ocr_text) setOcrTexts((prev) => ({ ...prev, [docId]: data.ocr_text! }));
     } catch { /* ignore */ }
   };
 
@@ -203,10 +203,6 @@ export default function CaseDetailPage() {
   };
 
   // ── Helpers ──
-  const statusColor = (status: string) => {
-    const map: Record<string, string> = { new: "bg-blue-100 text-blue-700", under_review: "bg-yellow-100 text-yellow-700", in_treatment: "bg-green-100 text-green-700", closed: "bg-gray-100 text-gray-600" };
-    return map[status] || "bg-gray-100 text-gray-600";
-  };
   const fuStatusColor = (status: string) => {
     const map: Record<string, string> = { scheduled: "bg-blue-100 text-blue-700", completed: "bg-green-100 text-green-700", overdue: "bg-red-100 text-red-700", cancelled: "bg-gray-100 text-gray-600" };
     return map[status] || "bg-gray-100 text-gray-600";
