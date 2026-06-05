@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
     # ── File Upload / Document Storage ────────────────────────
-    UPLOAD_DIR: str = "/data/uploads/documents"
+    UPLOAD_DIR: str = "./uploads/documents"
     MAX_UPLOAD_SIZE_BYTES: int = 26_214_400  # 25MB
 
     @property

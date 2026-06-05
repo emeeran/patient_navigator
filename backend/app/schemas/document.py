@@ -45,7 +45,7 @@ class DocumentListItem(BaseModel):
     case_id: UUID
     original_filename: str
     file_type: str
-    file_size_bytes: str
+    file_size_bytes: int
     mime_type: str
     ocr_status: str
     uploaded_by: UUID

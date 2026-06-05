@@ -3,65 +3,78 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import InvalidFileTypeError, NotFoundError
+from app.core.exceptions import (
+    FileTooLargeError,
+    InvalidFileTypeError,
+    NotFoundError,
+)
+from app.models.case import Case
 from app.models.document import Document
-from app.schemas.document import DocumentCreateRequest
+from app.schemas.document import ALLOWED_MIME_TYPES
+
+MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB
 
 
 class DocumentService:
     """Handles document CRUD and file storage operations."""
 
-    ALLOWED_MIME_TYPES = {
-        "application/pdf",
-        "image/jpeg",
-        "image/png",
-        "image/tiff",
-        "image/bmp",
-        "text/plain",
-    }
-
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create(
+    async def upload(
         self,
         case_id: uuid.UUID,
-        data: DocumentCreateRequest,
-        file_content: bytes,
-        actor_id: uuid.UUID,
-        ip_address: str | None = None,
+        original_filename: str,
+        mime_type: str,
+        file_bytes: bytes,
+        uploaded_by: uuid.UUID,
     ) -> Document:
         """Upload a new document for a case."""
-        if data.mime_type not in self.ALLOWED_MIME_TYPES:
-            raise InvalidFileTypeError(f"File type {data.mime_type} not supported")
+        # Validate case exists
+        case = await self.db.get(Case, case_id)
+        if not case:
+            raise NotFoundError("Case not found")
+
+        # Validate MIME type
+        if mime_type not in ALLOWED_MIME_TYPES:
+            raise InvalidFileTypeError(f"File type {mime_type} not supported")
+
+        # Validate file size
+        if len(file_bytes) > MAX_FILE_SIZE:
+            raise FileTooLargeError()
+
+        file_type = ALLOWED_MIME_TYPES[mime_type]
+
+        # Generate safe stored filename
+        from app.core.file_storage import generate_stored_filename, save_file
+
+        stored_filename = generate_stored_filename(file_type)
+        save_file(file_bytes, stored_filename)
 
         document = Document(
             case_id=case_id,
-            file_name=data.file_name,
-            mime_type=data.mime_type,
-            file_size=len(file_content),
-            storage_path="",  # Will be set after storage
-            uploaded_by=actor_id,
+            original_filename=original_filename,
+            stored_filename=stored_filename,
+            file_type=file_type,
+            file_size_bytes=len(file_bytes),
+            mime_type=mime_type,
+            ocr_status="pending",
+            uploaded_by=uploaded_by,
         )
         self.db.add(document)
         await self.db.flush()
-
-        # Store file (filesystem in V1, S3 in V2)
-        from app.core.file_storage import save_file
-
-        storage_path = await save_file(document.id, file_content)
-        document.storage_path = storage_path
-        await self.db.flush()
-
         return document
 
     async def get_by_id(self, document_id: uuid.UUID) -> Document:
         """Get a document by ID."""
         result = await self.db.execute(
-            select(Document).where(Document.id == document_id)
+            select(Document).where(
+                Document.id == document_id,
+                Document.deleted_at.is_(None),
+            )
         )
         doc = result.scalar_one_or_none()
         if not doc:
@@ -72,31 +85,46 @@ class DocumentService:
         self, case_id: uuid.UUID, page: int = 1, per_page: int = 20
     ) -> tuple[list[Document], int]:
         """List documents for a case with pagination."""
-        from sqlalchemy import func
+        base_query = select(Document).where(
+            Document.case_id == case_id,
+            Document.deleted_at.is_(None),
+        )
 
-        count_q = select(func.count()).select_from(Document).where(Document.case_id == case_id)
+        count_q = select(func.count()).select_from(base_query.subquery())
         total = (await self.db.execute(count_q)).scalar() or 0
 
         query = (
-            select(Document)
-            .where(Document.case_id == case_id)
-            .order_by(Document.created_at.desc())
+            base_query.order_by(Document.created_at.desc())
             .offset((page - 1) * per_page)
             .limit(per_page)
         )
         result = await self.db.execute(query)
         return result.scalars().all(), total
 
-    async def delete(self, document_id: uuid.UUID, actor_id: uuid.UUID) -> None:
+    async def delete(self, document_id: uuid.UUID) -> None:
         """Soft delete a document."""
         doc = await self.get_by_id(document_id)
         doc.deleted_at = datetime.now(UTC)
         await self.db.flush()
 
-    async def get_file_content(self, document_id: uuid.UUID) -> tuple[Document, bytes]:
-        """Get document metadata and file content for download."""
+    async def trigger_ocr(self, document_id: uuid.UUID) -> Document:
+        """Trigger OCR processing for a document."""
         doc = await self.get_by_id(document_id)
-        from app.core.file_storage import load_file
+        if doc.ocr_status == "processing":
+            return doc  # Already processing
 
-        content = await load_file(doc.storage_path)
-        return doc, content
+        doc.ocr_status = "processing"
+        await self.db.flush()
+
+        try:
+            from app.services.ocr_service import extract_text_from_file
+
+            text = extract_text_from_file(doc.stored_filename, doc.mime_type)
+            doc.ocr_text = text
+            doc.ocr_status = "completed"
+            doc.ocr_processed_at = datetime.now(UTC)
+        except Exception:
+            doc.ocr_status = "failed"
+
+        await self.db.flush()
+        return doc

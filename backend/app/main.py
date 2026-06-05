@@ -45,9 +45,11 @@ async def health_check() -> dict:
 from app.api.v1.admin import router as admin_router  # noqa: E402
 from app.api.v1.auth import router as auth_router  # noqa: E402
 from app.api.v1.cases import router as cases_router  # noqa: E402
+from app.api.v1.documents import router as documents_router  # noqa: E402
 from app.api.v1.patients import router as patients_router  # noqa: E402
 
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(admin_router, prefix="/admin", tags=["Administration"])
 app.include_router(patients_router, prefix="/patients", tags=["Patients"])
 app.include_router(cases_router, prefix="", tags=["Cases"])
+app.include_router(documents_router, prefix="", tags=["Documents"])
