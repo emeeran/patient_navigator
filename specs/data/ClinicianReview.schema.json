@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patient-navigator.com/schemas/ClinicianReview.schema.json",
+
+  "x-spec-id": "DATA-011",
+  "x-status": "DRAFT",
+  "x-version": "1.0.0",
+  "x-authors": ["@platform-team"],
+  "x-created": "2026-06-04",
+  "x-last-modified": "2026-06-04",
+  "x-relates-to": ["API-080", "API-081", "API-082"],
+
+  "title": "ClinicianReview",
+  "description": "A clinician's review of AI-generated medical content. Clinicians can approve, correct, or request revision of AI summaries. Reviews are linked to a case and authored by a specific clinician. Only the authoring clinician can update their own review.",
+
+  "type": "object",
+  "required": ["id", "caseId", "clinicianId", "reviewType", "content", "status", "createdAt", "updatedAt"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique identifier (UUID v4). Assigned by the system on creation.",
+      "examples": ["ee0e8400-e29b-41d4-a716-446655440009"],
+      "readOnly": true
+    },
+
+    "caseId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Foreign key to the Case this review belongs to.",
+      "examples": ["880e8400-e29b-41d4-a716-446655440003"],
+      "x-foreign-key": "Case.id",
+      "x-on-delete": "CASCADE"
+    },
+
+    "clinicianId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Foreign key to the User (clinician) who authored this review. Only this user can update the review.",
+      "examples": ["660e8400-e29b-41d4-a716-446655440001"],
+      "x-foreign-key": "User.id",
+      "x-on-delete": "RESTRICT"
+    },
+
+    "reviewType": {
+      "type": "string",
+      "enum": ["ai_summary_approval", "recommendation", "correction"],
+      "description": "Type of review. ai_summary_approval: approving AI-generated content. recommendation: adding clinical guidance. correction: pointing out errors in AI output."
+    },
+
+    "content": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000,
+      "description": "Review content. HTML is sanitized before storage. Supports plain text and basic formatting.",
+      "x-sanitization": "HTML entities escaped on input"
+    },
+
+    "status": {
+      "type": "string",
+      "enum": ["pending", "approved", "revision_requested"],
+      "default": "pending",
+      "description": "Review lifecycle status. Transitions: pending → approved, pending → revision_requested, revision_requested → approved.",
+      "x-transitions": {
+        "pending": ["approved", "revision_requested"],
+        "approved": [],
+        "revision_requested": ["approved"]
+      }
+    },
+
+    "reviewedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of when the clinician submitted their review (status changed from pending). Null while still pending.",
+      "default": null,
+      "readOnly": true
+    },
+
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of when this review was created.",
+      "readOnly": true
+    },
+
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of last modification.",
+      "readOnly": true
+    }
+
+  },
+
+  "x-database-indexes": [
+    {"name": "idx_reviews_case", "columns": ["caseId"]},
+    {"name": "idx_reviews_clinician", "columns": ["clinicianId"]},
+    {"name": "idx_reviews_status", "columns": ["status"]}
+  ],
+
+  "x-authorization": {
+    "create": "clinician",
+    "update": "owning_clinician_only",
+    "read": "authenticated_users_with_case_access"
+  },
+
+  "examples": [
+    {
+      "id": "ee0e8400-e29b-41d4-a716-446655440009",
+      "caseId": "880e8400-e29b-41d4-a716-446655440003",
+      "clinicianId": "660e8400-e29b-41d4-a716-446655440001",
+      "reviewType": "ai_summary_approval",
+      "content": "Summary accurately reflects the biopsy findings. Staging is correct at T2N0M0. Approved for care coordination use.",
+      "status": "approved",
+      "reviewedAt": "2026-06-04T12:00:00.000Z",
+      "createdAt": "2026-06-04T11:50:00.000Z",
+      "updatedAt": "2026-06-04T12:00:00.000Z"
+    },
+    {
+      "id": "ff0e8400-e29b-41d4-a716-446655440010",
+      "caseId": "880e8400-e29b-41d4-a716-446655440003",
+      "clinicianId": "660e8400-e29b-41d4-a716-446655440001",
+      "reviewType": "correction",
+      "content": "The staging should be T2N1M0, not T2N0M0. Lymph node involvement was noted in the pathology report. Please regenerate the summary.",
+      "status": "revision_requested",
+      "reviewedAt": "2026-06-04T12:05:00.000Z",
+      "createdAt": "2026-06-04T12:00:00.000Z",
+      "updatedAt": "2026-06-04T12:05:00.000Z"
+    }
+  ]
+}

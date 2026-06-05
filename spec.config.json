@@ -1,0 +1,87 @@
+{
+  "$schema": "./spec.config.schema.json",
+
+  "project": {
+    "name": "patient-navigator",
+    "organization": "patient-nav-team",
+    "specBaseUrl": "https://patient-nav.local/specs"
+  },
+
+  "specDirs": {
+    "features": "specs/features",
+    "api": "specs/api",
+    "data": "specs/data",
+    "architecture": "specs/architecture",
+    "adr": "specs/adr"
+  },
+
+  "registry": {
+    "path": "specs/REGISTRY.md",
+    "autoUpdate": true
+  },
+
+  "idFormat": {
+    "feature": "FEAT-{000}",
+    "api": "API-{000}",
+    "data": "DATA-{000}",
+    "architecture": "ARCH-{000}",
+    "adr": "ADR-{000}"
+  },
+
+  "statusRules": {
+    "blockedOnMain": ["DRAFT"],
+    "requiresTests": ["APPROVED", "IMPLEMENTED"],
+    "terminalStates": ["DEPRECATED", "SUPERSEDED"]
+  },
+
+  "scaffolding": {
+    "testDir": "tests",
+    "unitTemplate": "tests/__templates__/unit.test.py.template",
+    "integrationTemplate": "tests/__templates__/integration.test.py.template",
+    "contractTemplate": "tests/__templates__/contract.test.py.template"
+  },
+
+  "coverage": {
+    "minimumCoveragePercent": 80,
+    "requireContractTests": true,
+    "requireIntegrationTests": true
+  },
+
+  "openapi": {
+    "mainSpec": "specs/api/openapi.yaml",
+    "outputDir": "docs/api",
+    "requiredExtensions": ["x-spec-id", "x-status"],
+    "allowedStatuses": ["draft", "approved", "deprecated"]
+  },
+
+  "jsonSchema": {
+    "draft": "2020-12",
+    "requiredExtensions": ["x-spec-id", "x-status", "x-version"],
+    "piiAnnotation": "x-pii",
+    "enforceAdditionalPropertiesFalse": true
+  },
+
+  "gherkin": {
+    "requiredTags": [],
+    "allowedTags": [
+      "@happy-path",
+      "@smoke",
+      "@edge-case",
+      "@error",
+      "@security",
+      "@performance",
+      "@observability",
+      "@wip",
+      "@skip"
+    ],
+    "requireBackground": false,
+    "requireAtLeastOneHappyPath": true,
+    "requireAtLeastOneErrorCase": true
+  },
+
+  "git": {
+    "requireSpecIdInCommits": false,
+    "commitPattern": "^(feat|fix|chore|spec|test|docs|refactor|perf)(\\([a-z-]+\\))?(!)?: .+$",
+    "prRequiresSpecLink": true
+  }
+}

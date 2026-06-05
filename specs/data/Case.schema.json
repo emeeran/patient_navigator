@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patient-navigator.com/schemas/Case.schema.json",
+
+  "x-spec-id": "DATA-004",
+  "x-status": "DRAFT",
+  "x-version": "1.0.0",
+  "x-authors": ["@platform-team"],
+  "x-created": "2026-06-04",
+  "x-last-modified": "2026-06-04",
+  "x-relates-to": ["API-020", "API-021", "API-022", "API-023", "API-024", "API-025", "API-026", "API-091"],
+
+  "title": "Case",
+  "description": "A care coordination case linking a patient to a diagnosis, recommended hospital, funding source, and assigned clinician. Cases follow a strict state machine for status transitions. Every mutation emits a timeline event for full audit traceability. Multiple cases per patient are supported.",
+
+  "type": "object",
+  "required": ["id", "patientId", "diagnosis", "status", "priority", "createdBy", "createdAt", "updatedAt"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique identifier (UUID v4). Assigned by the system on creation.",
+      "examples": ["880e8400-e29b-41d4-a716-446655440003"],
+      "readOnly": true
+    },
+
+    "patientId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Foreign key to the Patient this case belongs to.",
+      "examples": ["770e8400-e29b-41d4-a716-446655440002"],
+      "x-foreign-key": "Patient.id",
+      "x-on-delete": "CASCADE"
+    },
+
+    "diagnosis": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 5000,
+      "description": "Medical diagnosis or reason for case opening. Entered by navigator. Not a clinical diagnosis — used for care coordination.",
+      "examples": ["Stage 2B Oral Cancer", "Cleft lip repair needed"]
+    },
+
+    "status": {
+      "type": "string",
+      "enum": ["new", "under_review", "hospital_selected", "funding_applied", "treatment_started", "closed"],
+      "default": "new",
+      "description": "Case lifecycle status. Transitions are validated against the state machine.",
+      "x-state-machine": {
+        "initial": "new",
+        "transitions": {
+          "new": ["under_review"],
+          "under_review": ["hospital_selected", "new"],
+          "hospital_selected": ["funding_applied", "under_review"],
+          "funding_applied": ["treatment_started", "hospital_selected"],
+          "treatment_started": ["closed", "funding_applied"],
+          "closed": ["under_review"]
+        },
+        "terminal": [],
+        "reopen": {"closed": "under_review"}
+      }
+    },
+
+    "priority": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "default": "medium",
+      "description": "Case urgency level. Can be changed independently of status at any time."
+    },
+
+    "notes": {
+      "type": ["string", "null"],
+      "maxLength": 10000,
+      "description": "Free-text notes about the case. Updated by navigators to track progress.",
+      "default": null
+    },
+
+    "recommendedHospitalId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "ID of the recommended hospital for treatment. Set during hospital selection phase.",
+      "default": null,
+      "x-foreign-key": "Hospital.id",
+      "x-on-delete": "SET NULL"
+    },
+
+    "appliedFundingId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "ID of the funding program applied to this case. Set during funding phase.",
+      "default": null,
+      "x-foreign-key": "FundingProgram.id",
+      "x-on-delete": "SET NULL"
+    },
+
+    "assignedClinicianId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "ID of the clinician assigned to review this case.",
+      "default": null,
+      "x-foreign-key": "User.id",
+      "x-on-delete": "SET NULL"
+    },
+
+    "createdBy": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ID of the User who created this case.",
+      "x-foreign-key": "User.id",
+      "x-on-delete": "RESTRICT",
+      "readOnly": true
+    },
+
+    "closedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp when the case was closed. Set when status transitions to 'closed'. Cleared on reopen.",
+      "default": null,
+      "readOnly": true
+    },
+
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of when this case was created.",
+      "readOnly": true
+    },
+
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of last modification.",
+      "readOnly": true
+    },
+
+    "deletedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Soft-delete timestamp. Null if active.",
+      "default": null,
+      "readOnly": true
+    }
+
+  },
+
+  "x-database-indexes": [
+    {"name": "idx_cases_patient", "columns": ["patientId"]},
+    {"name": "idx_cases_status", "columns": ["status"]},
+    {"name": "idx_cases_priority", "columns": ["priority"]},
+    {"name": "idx_cases_created_by", "columns": ["createdBy"]},
+    {"name": "idx_cases_status_priority", "columns": ["status", "priority"]}
+  ],
+
+  "examples": [
+    {
+      "id": "880e8400-e29b-41d4-a716-446655440003",
+      "patientId": "770e8400-e29b-41d4-a716-446655440002",
+      "diagnosis": "Stage 2B Oral Cancer",
+      "status": "under_review",
+      "priority": "high",
+      "notes": "Biopsy confirmed. Awaiting hospital assignment.",
+      "recommendedHospitalId": null,
+      "appliedFundingId": null,
+      "assignedClinicianId": null,
+      "createdBy": "660e8400-e29b-41d4-a716-446655440001",
+      "closedAt": null,
+      "createdAt": "2026-06-04T10:00:00.000Z",
+      "updatedAt": "2026-06-04T10:30:00.000Z",
+      "deletedAt": null
+    }
+  ]
+}

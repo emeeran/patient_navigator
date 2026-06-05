@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patient-navigator.com/schemas/Activity.schema.json",
+
+  "x-spec-id": "DATA-009",
+  "x-status": "DRAFT",
+  "x-version": "1.0.0",
+  "x-authors": ["@platform-team"],
+  "x-created": "2026-06-04",
+  "x-last-modified": "2026-06-04",
+  "x-relates-to": [],
+
+  "title": "Activity",
+  "description": "An INSERT-only audit log record tracking all mutations on patient-related entities. Activities capture who performed what action, on which entity, with optional structured metadata. Used for the patient activity feed and compliance auditing. Records cannot be updated or deleted (tamper-proof).",
+
+  "type": "object",
+  "required": ["id", "patientId", "userId", "action", "description", "createdAt"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique identifier (UUID v4). Assigned by the system on creation.",
+      "examples": ["990e8400-e29b-41d4-a716-446655440004"],
+      "readOnly": true
+    },
+
+    "patientId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Foreign key to the Patient this activity relates to.",
+      "examples": ["770e8400-e29b-41d4-a716-446655440002"],
+      "x-foreign-key": "Patient.id",
+      "x-on-delete": "CASCADE"
+    },
+
+    "userId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Foreign key to the User who performed the action.",
+      "examples": ["660e8400-e29b-41d4-a716-446655440001"],
+      "x-foreign-key": "User.id",
+      "x-on-delete": "RESTRICT"
+    },
+
+    "action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50,
+      "pattern": "^[a-z][a-z0-9_.]*$",
+      "description": "Machine-readable action identifier. Dot-notation namespaced by entity and verb.",
+      "examples": ["patient.created", "patient.updated", "patient.archived", "case.created", "case.status_changed"],
+      "x-enum": [
+        "patient.created", "patient.updated", "patient.archived",
+        "case.created", "case.updated", "case.status_changed", "case.reopened", "case.closed",
+        "document.uploaded", "document.ocr_completed",
+        "followup.created", "followup.completed",
+        "ai.summary_generated", "ai.review_submitted"
+      ]
+    },
+
+    "entityType": {
+      "type": ["string", "null"],
+      "maxLength": 50,
+      "description": "Type of entity this activity relates to (e.g., 'patient', 'case', 'document').",
+      "examples": ["patient", "case", "document"],
+      "default": null
+    },
+
+    "entityId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "UUID of the specific entity instance this activity relates to.",
+      "default": null
+    },
+
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "Human-readable description of the activity.",
+      "examples": ["Created patient record for Aarav Mehta", "Transitioned case from 'new' to 'under_review'"]
+    },
+
+    "metadata": {
+      "type": ["object", "null"],
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 512
+      },
+      "maxProperties": 20,
+      "default": null,
+      "description": "Optional structured key-value metadata for the activity. Used for storing transition details (old_value, new_value), field changes, etc."
+    },
+
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of when this activity occurred. Set once on creation, never modified.",
+      "readOnly": true
+    }
+
+  },
+
+  "x-constraints": {
+    "insertOnly": true,
+    "description": "Activities are INSERT-only. No UPDATE or DELETE operations are permitted. Enforced at database level via trigger or Row Security Policy."
+  },
+
+  "x-database-indexes": [
+    {"name": "idx_activities_patient", "columns": ["patientId"]},
+    {"name": "idx_activities_user", "columns": ["userId"]},
+    {"name": "idx_activities_action", "columns": ["action"]},
+    {"name": "idx_activities_created_at", "columns": ["createdAt"]}
+  ],
+
+  "examples": [
+    {
+      "id": "990e8400-e29b-41d4-a716-446655440004",
+      "patientId": "770e8400-e29b-41d4-a716-446655440002",
+      "userId": "660e8400-e29b-41d4-a716-446655440001",
+      "action": "patient.created",
+      "entityType": "patient",
+      "entityId": "770e8400-e29b-41d4-a716-446655440002",
+      "description": "Created patient record for Aarav Mehta",
+      "metadata": {"full_name": "Aarav Mehta", "age": "45"},
+      "createdAt": "2026-06-04T10:00:00.000Z"
+    },
+    {
+      "id": "aa0e8400-e29b-41d4-a716-446655440005",
+      "patientId": "770e8400-e29b-41d4-a716-446655440002",
+      "userId": "660e8400-e29b-41d4-a716-446655440001",
+      "action": "case.status_changed",
+      "entityType": "case",
+      "entityId": "880e8400-e29b-41d4-a716-446655440003",
+      "description": "Transitioned case from 'new' to 'under_review'",
+      "metadata": {"old_status": "new", "new_status": "under_review"},
+      "createdAt": "2026-06-04T10:30:00.000Z"
+    }
+  ]
+}

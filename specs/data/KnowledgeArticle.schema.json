@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patient-navigator.com/schemas/KnowledgeArticle.schema.json",
+
+  "x-spec-id": "DATA-012",
+  "x-status": "DRAFT",
+  "x-version": "1.0.0",
+  "x-authors": ["@platform-team"],
+  "x-created": "2026-06-04",
+  "x-last-modified": "2026-06-04",
+  "x-relates-to": [],
+
+  "title": "KnowledgeArticle",
+  "description": "A curated knowledge base article for patient education and navigator reference. Articles cover medical conditions, treatment explanations, hospital preparation guides, and financial assistance tips. Supports multilingual content (English and Tamil). Used as context source for AI-powered explanations.",
+
+  "type": "object",
+  "required": ["id", "title", "content", "language", "isPublished", "createdAt", "updatedAt"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique identifier (UUID v4).",
+      "readOnly": true
+    },
+
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Article title.",
+      "examples": ["Understanding Oral Cancer Treatment", "How to Apply for CM Health Insurance"]
+    },
+
+    "content": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100000,
+      "description": "Full article content in Markdown format."
+    },
+
+    "category": {
+      "type": ["string", "null"],
+      "maxLength": 100,
+      "description": "Article category for grouping.",
+      "examples": ["cancer-care", "financial-assistance", "patient-guides"],
+      "default": null
+    },
+
+    "tags": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "string",
+        "maxLength": 64
+      },
+      "uniqueItems": true,
+      "maxItems": 20,
+      "description": "Categorization tags for search and filtering.",
+      "examples": [["oral-cancer", "treatment", "surgery"]],
+      "default": null
+    },
+
+    "language": {
+      "type": "string",
+      "enum": ["en", "ta"],
+      "default": "en",
+      "description": "Article language. 'en' = English, 'ta' = Tamil."
+    },
+
+    "source": {
+      "type": ["string", "null"],
+      "maxLength": 255,
+      "description": "Source attribution for the article content.",
+      "examples": ["WHO Cancer Facts", "AIIMS Patient Guide"],
+      "default": null
+    },
+
+    "isPublished": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the article is published and visible to non-admin users. Draft articles are only visible to admins."
+    },
+
+    "createdBy": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "ID of the User who created this article. Null if system-generated.",
+      "x-foreign-key": "User.id",
+      "x-on-delete": "SET NULL",
+      "default": null
+    },
+
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of creation.",
+      "readOnly": true
+    },
+
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of last modification.",
+      "readOnly": true
+    }
+
+  },
+
+  "x-database-indexes": [
+    {"name": "idx_articles_category", "columns": ["category"]},
+    {"name": "idx_articles_language", "columns": ["language"]},
+    {"name": "idx_articles_published", "columns": ["isPublished"]},
+    {"name": "idx_articles_title_trgm", "columns": ["title"], "method": "GIN", "opclass": "gin_trgm_ops"}
+  ],
+
+  "x-chromadb-integration": {
+    "description": "Published articles are indexed in ChromaDB for vector similarity search. Used by AI endpoints to retrieve relevant context for medical explanations.",
+    "collection": "knowledge_articles",
+    "embeddingField": "content",
+    "metadataFields": ["category", "language", "isPublished"]
+  },
+
+  "examples": [
+    {
+      "id": "440e8400-e29b-41d4-a716-446655440014",
+      "title": "Understanding Oral Cancer Treatment",
+      "content": "# Understanding Oral Cancer Treatment\n\nOral cancer treatment depends on the stage and location...",
+      "category": "cancer-care",
+      "tags": ["oral-cancer", "treatment", "surgery", "radiation"],
+      "language": "en",
+      "source": "National Cancer Institute",
+      "isPublished": true,
+      "createdBy": "660e8400-e29b-41d4-a716-446655440001",
+      "createdAt": "2026-06-04T10:00:00.000Z",
+      "updatedAt": "2026-06-04T10:00:00.000Z"
+    }
+  ]
+}

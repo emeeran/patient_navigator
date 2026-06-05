@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patient-navigator.com/schemas/Hospital.schema.json",
+
+  "x-spec-id": "DATA-006",
+  "x-status": "DRAFT",
+  "x-version": "1.0.0",
+  "x-authors": ["@platform-team"],
+  "x-created": "2026-06-04",
+  "x-last-modified": "2026-06-04",
+  "x-relates-to": ["API-040", "API-041", "API-042", "API-043"],
+
+  "title": "Hospital",
+  "description": "A hospital or healthcare facility in the directory. Contains specialties, cost estimates, contact information, and financial assistance details. Used by navigators to recommend treatment options and by admins to maintain the directory.",
+
+  "type": "object",
+  "required": ["id", "name", "city", "isActive", "createdAt", "updatedAt"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique identifier (UUID v4).",
+      "readOnly": true
+    },
+
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Hospital or facility name.",
+      "examples": ["Apollo Cancer Centre", "AIIMS Delhi"]
+    },
+
+    "specialty": {
+      "type": ["string", "null"],
+      "maxLength": 255,
+      "description": "Comma-separated list of medical specialties offered.",
+      "examples": ["Oncology, Head and Neck Surgery, Reconstructive Surgery"],
+      "default": null
+    },
+
+    "city": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "City where the hospital is located.",
+      "examples": ["Chennai", "Mumbai", "Delhi"]
+    },
+
+    "state": {
+      "type": ["string", "null"],
+      "maxLength": 100,
+      "description": "State or province.",
+      "examples": ["Tamil Nadu", "Maharashtra"],
+      "default": null
+    },
+
+    "address": {
+      "type": ["string", "null"],
+      "maxLength": 1000,
+      "description": "Full street address.",
+      "default": null
+    },
+
+    "phone": {
+      "type": ["string", "null"],
+      "maxLength": 20,
+      "description": "Contact phone number.",
+      "examples": ["+914428291890"],
+      "default": null
+    },
+
+    "email": {
+      "type": ["string", "null"],
+      "format": "email",
+      "maxLength": 254,
+      "description": "Contact email address.",
+      "default": null
+    },
+
+    "website": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "maxLength": 500,
+      "description": "Hospital website URL.",
+      "default": null
+    },
+
+    "costRangeMin": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "exclusiveMaximum": 100000000,
+      "multipleOf": 0.01,
+      "description": "Estimated minimum treatment cost in INR.",
+      "examples": [200000],
+      "default": null
+    },
+
+    "costRangeMax": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "exclusiveMaximum": 100000000,
+      "multipleOf": 0.01,
+      "description": "Estimated maximum treatment cost in INR. Must be >= costRangeMin if both set.",
+      "examples": [1500000],
+      "default": null
+    },
+
+    "hasFinancialAssistance": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the hospital offers internal financial assistance programs."
+    },
+
+    "financialAssistanceDetails": {
+      "type": ["string", "null"],
+      "maxLength": 5000,
+      "description": "Details about available financial assistance programs.",
+      "default": null
+    },
+
+    "rating": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 5,
+      "multipleOf": 0.1,
+      "description": "Quality rating on a 0.0–5.0 scale.",
+      "examples": [4.5, 3.8],
+      "default": null
+    },
+
+    "isActive": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this hospital is active in the directory. Inactive hospitals are hidden from default queries."
+    },
+
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of creation.",
+      "readOnly": true
+    },
+
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of last modification.",
+      "readOnly": true
+    }
+
+  },
+
+  "x-database-indexes": [
+    {"name": "idx_hospitals_city", "columns": ["city"]},
+    {"name": "idx_hospitals_active", "columns": ["isActive"]},
+    {"name": "idx_hospitals_name_trgm", "columns": ["name"], "method": "GIN", "opclass": "gin_trgm_ops"}
+  ],
+
+  "examples": [
+    {
+      "id": "110e8400-e29b-41d4-a716-446655440011",
+      "name": "Apollo Cancer Centre",
+      "specialty": "Oncology, Head and Neck Surgery, Reconstructive Surgery",
+      "city": "Chennai",
+      "state": "Tamil Nadu",
+      "address": "320, Anna Salai, Chennai 600006",
+      "phone": "+914428291890",
+      "email": "info@apollocancer.in",
+      "website": "https://www.apollocancercentre.com",
+      "costRangeMin": 200000,
+      "costRangeMax": 1500000,
+      "hasFinancialAssistance": true,
+      "financialAssistanceDetails": "SAP scheme available for low-income families. Contact billing department for details.",
+      "rating": 4.5,
+      "isActive": true,
+      "createdAt": "2026-06-04T10:00:00.000Z",
+      "updatedAt": "2026-06-04T10:00:00.000Z"
+    }
+  ]
+}

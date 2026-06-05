@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patient-navigator.com/schemas/Document.schema.json",
+
+  "x-spec-id": "DATA-005",
+  "x-status": "DRAFT",
+  "x-version": "1.0.0",
+  "x-authors": ["@platform-team"],
+  "x-created": "2026-06-04",
+  "x-last-modified": "2026-06-04",
+  "x-relates-to": ["API-030", "API-031", "API-032", "API-033", "API-034", "API-035", "API-036", "API-037"],
+
+  "title": "Document",
+  "description": "A medical document uploaded to a case. Documents are stored as files on the filesystem with metadata in PostgreSQL. OCR extraction runs asynchronously via PaddleOCR, with status tracking from pending through completed or failed. Files are stored with UUID-based sanitized names to prevent path traversal attacks.",
+
+  "type": "object",
+  "required": ["id", "caseId", "originalFilename", "storedFilename", "fileType", "fileSizeBytes", "mimeType", "ocrStatus", "uploadedBy", "createdAt", "updatedAt"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique identifier (UUID v4). Assigned by the system on creation.",
+      "examples": ["dd0e8400-e29b-41d4-a716-446655440008"],
+      "readOnly": true
+    },
+
+    "caseId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Foreign key to the Case this document belongs to.",
+      "examples": ["880e8400-e29b-41d4-a716-446655440003"],
+      "x-foreign-key": "Case.id",
+      "x-on-delete": "CASCADE"
+    },
+
+    "originalFilename": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "The filename as provided by the user during upload. Stored for display purposes only — never used for filesystem operations.",
+      "examples": ["biopsy_report.pdf", "scan_result.jpg"]
+    },
+
+    "storedFilename": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "System-generated UUID-based filename used for filesystem storage. Format: {uuid}.{extension}. Never influenced by user input.",
+      "examples": ["a1b2c3d4-e5f6-7890-abcd-ef1234567890.pdf"],
+      "x-security": "UUID-based to prevent path traversal and filename collisions"
+    },
+
+    "fileType": {
+      "type": "string",
+      "enum": ["pdf", "jpg", "jpeg", "png", "docx"],
+      "description": "Normalized file extension. Determined from actual file content (MIME type), not the user-provided filename."
+    },
+
+    "fileSizeBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 26214400,
+      "description": "File size in bytes. Maximum allowed: 25MB (26,214,400 bytes).",
+      "examples": [2516582, 819200, 153600]
+    },
+
+    "mimeType": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "MIME type of the file. Validated against actual file content (not just the extension) to prevent MIME type spoofing.",
+      "examples": ["application/pdf", "image/jpeg", "image/png", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+      "x-allowed-values": [
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ]
+    },
+
+    "ocrText": {
+      "type": ["string", "null"],
+      "description": "Text extracted by PaddleOCR. Null until OCR completes successfully. Can be very large (up to ~200,000 characters for multi-page documents).",
+      "default": null,
+      "x-sensitive": true
+    },
+
+    "ocrStatus": {
+      "type": "string",
+      "enum": ["pending", "processing", "completed", "failed"],
+      "default": "pending",
+      "description": "OCR processing status. Transitions: pending → processing → completed|failed. Failed documents can be re-triggered.",
+      "x-transitions": {
+        "pending": ["processing"],
+        "processing": ["completed", "failed"],
+        "completed": ["processing"],
+        "failed": ["processing"]
+      }
+    },
+
+    "ocrProcessedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of when OCR processing completed (or failed). Null until OCR runs.",
+      "default": null,
+      "readOnly": true
+    },
+
+    "uploadedBy": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ID of the User who uploaded this document.",
+      "x-foreign-key": "User.id",
+      "x-on-delete": "RESTRICT",
+      "readOnly": true
+    },
+
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of when this document was uploaded.",
+      "readOnly": true
+    },
+
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of last modification (e.g., OCR status change).",
+      "readOnly": true
+    },
+
+    "deletedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Soft-delete timestamp. Physical file is retained on disk for compliance.",
+      "default": null,
+      "readOnly": true
+    }
+
+  },
+
+  "x-file-constraints": {
+    "maxSizeBytes": 26214400,
+    "maxSizeHuman": "25MB",
+    "allowedTypes": ["pdf", "jpg", "jpeg", "png", "docx"],
+    "storageBackend": "filesystem",
+    "storagePath": "/data/uploads/documents/",
+    "filenameStrategy": "UUID-based with original extension"
+  },
+
+  "x-ocr-configuration": {
+    "engine": "PaddleOCR",
+    "asyncProcessing": true,
+    "timeoutSeconds": 60,
+    "supportedLanguages": ["en"],
+    "retryOnFailure": false
+  },
+
+  "x-database-indexes": [
+    {"name": "idx_documents_case", "columns": ["caseId"]},
+    {"name": "idx_documents_uploaded_by", "columns": ["uploadedBy"]},
+    {"name": "idx_documents_ocr_status", "columns": ["ocrStatus"]}
+  ],
+
+  "x-api-projections": {
+    "metadata": {
+      "description": "Returned by GET /documents/{id} and list endpoints. Excludes ocrText.",
+      "fields": ["id", "caseId", "originalFilename", "fileType", "fileSizeBytes", "mimeType", "ocrStatus", "ocrProcessedAt", "uploadedBy", "createdAt", "updatedAt"]
+    },
+    "withOcr": {
+      "description": "Returned by GET /documents/{id}/ocr. Includes ocrText.",
+      "fields": ["id", "ocrText", "ocrStatus", "ocrProcessedAt"]
+    }
+  },
+
+  "examples": [
+    {
+      "id": "dd0e8400-e29b-41d4-a716-446655440008",
+      "caseId": "880e8400-e29b-41d4-a716-446655440003",
+      "originalFilename": "biopsy_report.pdf",
+      "storedFilename": "a1b2c3d4-e5f6-7890-abcd-ef1234567890.pdf",
+      "fileType": "pdf",
+      "fileSizeBytes": 2516582,
+      "mimeType": "application/pdf",
+      "ocrText": "Biopsy report shows moderately differentiated squamous cell carcinoma...",
+      "ocrStatus": "completed",
+      "ocrProcessedAt": "2026-06-04T10:05:00.000Z",
+      "uploadedBy": "660e8400-e29b-41d4-a716-446655440001",
+      "createdAt": "2026-06-04T10:00:00.000Z",
+      "updatedAt": "2026-06-04T10:05:00.000Z",
+      "deletedAt": null
+    }
+  ]
+}

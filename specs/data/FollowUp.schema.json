@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patient-navigator.com/schemas/FollowUp.schema.json",
+
+  "x-spec-id": "DATA-008",
+  "x-status": "DRAFT",
+  "x-version": "1.0.0",
+  "x-authors": ["@platform-team"],
+  "x-created": "2026-06-04",
+  "x-last-modified": "2026-06-04",
+  "x-relates-to": ["API-060", "API-061", "API-062", "API-063", "API-064"],
+
+  "title": "FollowUp",
+  "description": "A tracked task or milestone related to a patient case. Follow-ups have a type (appointment, deadline, funding_status, treatment_progress), a due date, and a status. Overdue follow-ups are automatically detected by comparing due_date to the current date. The patient_id is denormalized from the case for efficient cross-case querying.",
+
+  "type": "object",
+  "required": ["id", "caseId", "patientId", "type", "title", "dueDate", "status", "createdBy", "createdAt", "updatedAt"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique identifier (UUID v4).",
+      "readOnly": true
+    },
+
+    "caseId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Foreign key to the Case this follow-up belongs to.",
+      "x-foreign-key": "Case.id",
+      "x-on-delete": "CASCADE"
+    },
+
+    "patientId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Denormalized patient ID from the case. Used for efficient cross-case queries in the upcoming view.",
+      "x-foreign-key": "Patient.id",
+      "x-on-delete": "CASCADE",
+      "x-denormalized-from": "Case.patientId"
+    },
+
+    "type": {
+      "type": "string",
+      "enum": ["appointment", "deadline", "funding_status", "treatment_progress"],
+      "description": "Category of follow-up task."
+    },
+
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Brief title describing the follow-up task.",
+      "examples": ["Consultation with oncologist", "Submit funding application", "Check MRI results"]
+    },
+
+    "description": {
+      "type": ["string", "null"],
+      "maxLength": 5000,
+      "description": "Detailed description of the follow-up task.",
+      "default": null
+    },
+
+    "dueDate": {
+      "type": "string",
+      "format": "date",
+      "description": "Due date for the follow-up. Date-only (no time component). When due_date < current date and status is 'pending', the follow-up is considered overdue.",
+      "examples": ["2026-06-15", "2026-07-01"]
+    },
+
+    "status": {
+      "type": "string",
+      "enum": ["pending", "completed", "overdue", "cancelled"],
+      "default": "pending",
+      "description": "Follow-up status. 'overdue' is a computed status — the database stores 'pending' but the API returns 'overdue' when due_date has passed. Transitions: pending → completed, pending → cancelled.",
+      "x-transitions": {
+        "pending": ["completed", "cancelled"],
+        "completed": [],
+        "cancelled": ["pending"]
+      },
+      "x-computed-overdue": {
+        "description": "Status 'overdue' is computed at query time: status='pending' AND due_date < CURRENT_DATE → return 'overdue'. Database never stores 'overdue'."
+      }
+    },
+
+    "completedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of when the follow-up was marked completed.",
+      "default": null,
+      "readOnly": true
+    },
+
+    "createdBy": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ID of the User who created this follow-up.",
+      "x-foreign-key": "User.id",
+      "x-on-delete": "RESTRICT",
+      "readOnly": true
+    },
+
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of creation.",
+      "readOnly": true
+    },
+
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of last modification.",
+      "readOnly": true
+    }
+
+  },
+
+  "x-database-indexes": [
+    {"name": "idx_followups_case", "columns": ["caseId"]},
+    {"name": "idx_followups_patient", "columns": ["patientId"]},
+    {"name": "idx_followups_status", "columns": ["status"]},
+    {"name": "idx_followups_due_date", "columns": ["dueDate"]},
+    {"name": "idx_followups_status_due", "columns": ["status", "dueDate"]}
+  ],
+
+  "examples": [
+    {
+      "id": "330e8400-e29b-41d4-a716-446655440013",
+      "caseId": "880e8400-e29b-41d4-a716-446655440003",
+      "patientId": "770e8400-e29b-41d4-a716-446655440002",
+      "type": "appointment",
+      "title": "Consultation with oncologist",
+      "description": "First appointment at Apollo Cancer Centre. Bring biopsy report and insurance documents.",
+      "dueDate": "2026-06-15",
+      "status": "pending",
+      "completedAt": null,
+      "createdBy": "660e8400-e29b-41d4-a716-446655440001",
+      "createdAt": "2026-06-04T10:00:00.000Z",
+      "updatedAt": "2026-06-04T10:00:00.000Z"
+    }
+  ]
+}

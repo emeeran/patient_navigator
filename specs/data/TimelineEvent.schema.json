@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patient-navigator.com/schemas/TimelineEvent.schema.json",
+
+  "x-spec-id": "DATA-010",
+  "x-status": "DRAFT",
+  "x-version": "1.0.0",
+  "x-authors": ["@platform-team"],
+  "x-created": "2026-06-04",
+  "x-last-modified": "2026-06-04",
+  "x-relates-to": ["API-026"],
+
+  "title": "TimelineEvent",
+  "description": "An INSERT-only audit record of every change made to a case. Timeline events provide a chronological, tamper-proof history of case lifecycle events including status transitions, field updates, and administrative actions. Queried via GET /cases/{id}/timeline.",
+
+  "type": "object",
+  "required": ["id", "caseId", "userId", "eventType", "title", "createdAt"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique identifier (UUID v4). Assigned by the system on creation.",
+      "examples": ["bb0e8400-e29b-41d4-a716-446655440006"],
+      "readOnly": true
+    },
+
+    "caseId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Foreign key to the Case this timeline event belongs to.",
+      "examples": ["880e8400-e29b-41d4-a716-446655440003"],
+      "x-foreign-key": "Case.id",
+      "x-on-delete": "CASCADE"
+    },
+
+    "userId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Foreign key to the User who triggered this event.",
+      "examples": ["660e8400-e29b-41d4-a716-446655440001"],
+      "x-foreign-key": "User.id",
+      "x-on-delete": "RESTRICT"
+    },
+
+    "eventType": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50,
+      "pattern": "^[a-z][a-z0-9_.]*$",
+      "description": "Machine-readable event type. Dot-notation namespaced.",
+      "examples": ["case.created", "case.updated", "case.status_changed", "case.reopened", "case.closed"],
+      "x-enum": [
+        "case.created",
+        "case.updated",
+        "case.status_changed",
+        "case.reopened",
+        "case.closed",
+        "case.hospital_assigned",
+        "case.funding_applied",
+        "case.clinician_assigned"
+      ]
+    },
+
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Human-readable event title for display in the timeline UI.",
+      "examples": ["Case created", "Status changed: new → under_review", "Priority updated to critical"]
+    },
+
+    "description": {
+      "type": ["string", "null"],
+      "maxLength": 2000,
+      "description": "Detailed description of what changed. Optional context beyond the title.",
+      "default": null
+    },
+
+    "oldValue": {
+      "type": ["string", "null"],
+      "maxLength": 500,
+      "description": "Previous value for status/field changes. Null for creation events.",
+      "default": null
+    },
+
+    "newValue": {
+      "type": ["string", "null"],
+      "maxLength": 500,
+      "description": "New value for status/field changes. Null for some event types.",
+      "default": null
+    },
+
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of when this event occurred. Set once, never modified.",
+      "readOnly": true
+    }
+
+  },
+
+  "x-constraints": {
+    "insertOnly": true,
+    "description": "Timeline events are INSERT-only. No UPDATE or DELETE operations permitted. Enforced at database level."
+  },
+
+  "x-database-indexes": [
+    {"name": "idx_timeline_case", "columns": ["caseId"]},
+    {"name": "idx_timeline_case_created", "columns": ["caseId", "createdAt"]}
+  ],
+
+  "examples": [
+    {
+      "id": "bb0e8400-e29b-41d4-a716-446655440006",
+      "caseId": "880e8400-e29b-41d4-a716-446655440003",
+      "userId": "660e8400-e29b-41d4-a716-446655440001",
+      "eventType": "case.status_changed",
+      "title": "Status changed: new → under_review",
+      "description": "Navigator began reviewing the case",
+      "oldValue": "new",
+      "newValue": "under_review",
+      "createdAt": "2026-06-04T10:30:00.000Z"
+    },
+    {
+      "id": "cc0e8400-e29b-41d4-a716-446655440007",
+      "caseId": "880e8400-e29b-41d4-a716-446655440003",
+      "userId": "660e8400-e29b-41d4-a716-446655440001",
+      "eventType": "case.created",
+      "title": "Case created",
+      "description": "New case opened for Stage 2B Oral Cancer",
+      "oldValue": null,
+      "newValue": null,
+      "createdAt": "2026-06-04T10:00:00.000Z"
+    }
+  ]
+}

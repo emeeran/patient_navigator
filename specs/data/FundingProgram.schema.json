@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patient-navigator.com/schemas/FundingProgram.schema.json",
+
+  "x-spec-id": "DATA-007",
+  "x-status": "DRAFT",
+  "x-version": "1.0.0",
+  "x-authors": ["@platform-team"],
+  "x-created": "2026-06-04",
+  "x-last-modified": "2026-06-04",
+  "x-relates-to": ["API-050", "API-051", "API-052", "API-053"],
+
+  "title": "FundingProgram",
+  "description": "A government, NGO, or hospital-based financial assistance scheme for medical treatment. Contains eligibility criteria, required documents, application process details, and contact information. Used by navigators to match patients to available funding.",
+
+  "type": "object",
+  "required": ["id", "schemeName", "isActive", "createdAt", "updatedAt"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique identifier (UUID v4).",
+      "readOnly": true
+    },
+
+    "schemeName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Official name of the funding program or scheme.",
+      "examples": ["Chief Minister's Health Insurance Scheme", "PM Jan Arogya Yojana"]
+    },
+
+    "description": {
+      "type": ["string", "null"],
+      "maxLength": 10000,
+      "description": "Detailed description of the program, what it covers, and its purpose.",
+      "default": null
+    },
+
+    "eligibilityCriteria": {
+      "type": ["string", "null"],
+      "maxLength": 10000,
+      "description": "Text description of who qualifies for this program.",
+      "examples": ["Annual family income below ₹72,000. Tamil Nadu resident. Below poverty line card holder."],
+      "default": null
+    },
+
+    "documentsRequired": {
+      "type": ["string", "null"],
+      "maxLength": 5000,
+      "description": "List of documents needed to apply.",
+      "examples": ["Income certificate, Aadhaar card, hospital estimate, ration card"],
+      "default": null
+    },
+
+    "applicationProcess": {
+      "type": ["string", "null"],
+      "maxLength": 10000,
+      "description": "Step-by-step application process description.",
+      "default": null
+    },
+
+    "contactPerson": {
+      "type": ["string", "null"],
+      "maxLength": 255,
+      "description": "Name of the contact person for this program.",
+      "default": null
+    },
+
+    "contactPhone": {
+      "type": ["string", "null"],
+      "maxLength": 20,
+      "description": "Contact phone number.",
+      "default": null
+    },
+
+    "contactEmail": {
+      "type": ["string", "null"],
+      "format": "email",
+      "maxLength": 254,
+      "description": "Contact email address.",
+      "default": null
+    },
+
+    "website": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "maxLength": 500,
+      "description": "Program website URL.",
+      "default": null
+    },
+
+    "maxAmount": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "exclusiveMaximum": 100000000,
+      "multipleOf": 0.01,
+      "description": "Maximum financial assistance available in INR.",
+      "examples": [500000, 2000000],
+      "default": null
+    },
+
+    "isActive": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this program is currently active and accepting applications."
+    },
+
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of creation.",
+      "readOnly": true
+    },
+
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of last modification.",
+      "readOnly": true
+    }
+
+  },
+
+  "x-database-indexes": [
+    {"name": "idx_funding_active", "columns": ["isActive"]},
+    {"name": "idx_funding_name_trgm", "columns": ["schemeName"], "method": "GIN", "opclass": "gin_trgm_ops"}
+  ],
+
+  "examples": [
+    {
+      "id": "220e8400-e29b-41d4-a716-446655440012",
+      "schemeName": "Chief Minister's Health Insurance Scheme",
+      "description": "Tamil Nadu government scheme providing free treatment for low-income families at empaneled hospitals.",
+      "eligibilityCriteria": "Annual family income below ₹72,000. Tamil Nadu resident. Below poverty line card holder.",
+      "documentsRequired": "Income certificate, Aadhaar card, hospital estimate, ration card",
+      "applicationProcess": "Apply through the hospital's billing department with required documents. Processing time: 3–5 business days.",
+      "contactPerson": "Ramesh Kumar",
+      "contactPhone": "+914425340540",
+      "contactEmail": "cmhis@tn.gov.in",
+      "website": "https://cmhisco.tn.gov.in",
+      "maxAmount": 500000,
+      "isActive": true,
+      "createdAt": "2026-06-04T10:00:00.000Z",
+      "updatedAt": "2026-06-04T10:00:00.000Z"
+    }
+  ]
+}
