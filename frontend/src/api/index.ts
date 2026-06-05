@@ -8,6 +8,8 @@ import type {
   FollowUp,
   PaginatedResponse,
   AIResponse,
+  DocumentPreview,
+  OCRResult,
 } from "../types";
 
 // ── Patients ────────────────────────────────────────────
@@ -34,6 +36,18 @@ export const casesApi = {
     api.patch<Case>(`/cases/${id}`, data),
   transitionStatus: (id: string, status: string) =>
     api.patch<Case>(`/cases/${id}/status`, { status }),
+  timeline: (id: string) =>
+    api.get<{ items: { id: string; action: string; description: string; created_at: string }[] }>(`/cases/${id}/timeline`),
+};
+
+// ── Reviews ──────────────────────────────────────────
+export const reviewsApi = {
+  list: (caseId: string) =>
+    api.get<{ items: { id: string; reviewer_id: string; summary_text: string; status: string; reviewer_comments: string | null; created_at: string }[] }>(`/cases/${caseId}/reviews`),
+  create: (caseId: string, data: { summary_text: string; ai_disclaimer_acknowledged: boolean }) =>
+    api.post(`/cases/${caseId}/reviews`, data),
+  update: (reviewId: string, data: { status: string; reviewer_comments?: string }) =>
+    api.patch(`/reviews/${reviewId}`, data),
 };
 
 // ── Documents ──────────────────────────────────────────
@@ -50,7 +64,8 @@ export const documentsApi = {
   },
   download: (id: string) =>
     api.get(`/documents/${id}/download`, { responseType: "blob" }),
-  triggerOcr: (id: string) => api.post(`/documents/${id}/ocr`),
+  triggerOcr: (id: string) => api.post<OCRResult>(`/documents/${id}/ocr`),
+  preview: (id: string) => api.get<DocumentPreview>(`/documents/${id}/preview`),
   delete: (id: string) => api.delete(`/documents/${id}`),
 };
 

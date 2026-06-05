@@ -34,6 +34,7 @@ export default function DashboardPage() {
         { label: "Hospitals", href: "/hospitals", color: "bg-purple-500", icon: "🏥", count: count(h) },
         { label: "Funding", href: "/funding", color: "bg-pink-500", icon: "💰", count: count(f) },
         { label: "Follow-Ups", href: "/follow-ups", color: "bg-indigo-500", icon: "📅", count: count(fu) },
+        { label: "AI Assistant", href: "/ai-assistant", color: "bg-cyan-500", icon: "🤖", count: 0 },
       ]);
     }
     loadCounts();
@@ -50,7 +51,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {cards.map((card) => (
           <Link
             key={card.label}
@@ -63,7 +64,12 @@ export default function DashboardPage() {
               </div>
             </div>
             <h3 className="font-semibold text-gray-900">{card.label}</h3>
-            <p className="text-2xl font-bold text-gray-700 mt-1">{card.count}</p>
+            {card.label !== "AI Assistant" && (
+              <p className="text-2xl font-bold text-gray-700 mt-1">{card.count}</p>
+            )}
+            {card.label === "AI Assistant" && (
+              <p className="text-sm text-gray-500 mt-1">Open tools</p>
+            )}
           </Link>
         ))}
       </div>

@@ -12,7 +12,7 @@ from app.models.document import Document
 logger = logging.getLogger(__name__)
 
 OLLAMA_BASE_URL = "http://localhost:11434"
-DEFAULT_MODEL = "qwen3"
+DEFAULT_MODEL = "medgemma:4b"
 
 MEDICAL_DISCLAIMER = (
     "This AI-generated content is for informational purposes only. "

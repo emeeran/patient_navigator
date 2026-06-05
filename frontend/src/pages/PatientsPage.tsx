@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { patientsApi } from "../api";
 import type { Patient } from "../types";
 import Modal from "../components/Modal";
@@ -15,6 +16,7 @@ const emptyForm = {
 };
 
 export default function PatientsPage() {
+  const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
@@ -111,7 +113,8 @@ export default function PatientsPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {patients.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50">
+                <tr key={p.id} className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => navigate(`/patients/${p.id}`)}>
                   <td className="px-4 py-3 font-medium text-gray-900">{p.full_name}</td>
                   <td className="px-4 py-3 text-gray-600">{p.age}</td>
                   <td className="px-4 py-3 text-gray-600 capitalize">{p.gender}</td>

@@ -125,3 +125,25 @@ export interface AIResponse {
   disclaimer: string;
   model: string | null;
 }
+
+export interface OCRResult {
+  id: string;
+  ocr_status: string;
+  ocr_text: string | null;
+  ocr_processed_at: string | null;
+}
+
+export interface DocumentPreview {
+  id: string;
+  case_id: string;
+  original_filename: string;
+  file_type: string;
+  file_size_bytes: number;
+  mime_type: string;
+  ocr_status: string;
+  ocr_text: string | null;
+  ocr_processed_at: string | null;
+  uploaded_by: string;
+  created_at: string;
+  updated_at: string;
+}

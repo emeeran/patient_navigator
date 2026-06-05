@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { casesApi, patientsApi } from "../api";
 import type { Case, Patient } from "../types";
 import Modal from "../components/Modal";
@@ -120,9 +121,10 @@ export default function CasesPage() {
       ) : (
         <div className="space-y-3">
           {cases.map((c) => (
-            <div
+            <Link
               key={c.id}
-              className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow"
+              to={`/cases/${c.id}`}
+              className="block bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -147,7 +149,7 @@ export default function CasesPage() {
               {c.notes && (
                 <p className="text-sm text-gray-600 mt-2">{c.notes}</p>
               )}
-            </div>
+            </Link>
           ))}
           {cases.length === 0 && (
             <p className="text-center text-gray-500 py-8">

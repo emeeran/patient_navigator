@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { hospitalsApi } from "../api";
 import type { Hospital } from "../types";
 import Modal from "../components/Modal";
@@ -18,6 +19,7 @@ const emptyForm = {
 };
 
 export default function HospitalsPage() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<Hospital[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
@@ -107,7 +109,8 @@ export default function HospitalsPage() {
           {items.map((h) => (
             <div
               key={h.id}
-              className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow"
+              className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow cursor-pointer"
+              onClick={() => navigate(`/hospitals/${h.id}`)}
             >
               <h3 className="font-semibold text-gray-900">{h.name}</h3>
               <p className="text-sm text-gray-500 mt-1">

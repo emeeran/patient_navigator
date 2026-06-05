@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { fundingApi } from "../api";
 import type { FundingProgram } from "../types";
 import Modal from "../components/Modal";
@@ -18,6 +19,7 @@ const emptyForm = {
 };
 
 export default function FundingPage() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<FundingProgram[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
@@ -107,7 +109,8 @@ export default function FundingPage() {
           {items.map((f) => (
             <div
               key={f.id}
-              className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow"
+              className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow cursor-pointer"
+              onClick={() => navigate(`/funding/${f.id}`)}
             >
               <div className="flex justify-between">
                 <div>
