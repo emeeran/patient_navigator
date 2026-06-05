@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.core.config import settings
 from app.core.database import Base, engine
@@ -130,26 +130,38 @@ class DbMaintenanceService:
         """Run REINDEX and VACUUM on all tables. Returns per-operation results."""
         results = []
 
-        async with engine.begin() as conn:
-            # Reindex the entire database
-            try:
-                await conn.execute(text("REINDEX DATABASE CURRENT_DATABASE"))
-                results.append({"operation": "REINDEX", "table": "ALL", "status": "ok"})
-            except Exception as e:
-                results.append({"operation": "REINDEX", "table": "ALL", "status": f"error: {e}"})
+        # REINDEX and VACUUM cannot run inside a transaction.
+        # Use an autocommit-level engine for these operations.
+        autocommit_engine = create_async_engine(
+            settings.DATABASE_URL,
+            isolation_level="AUTOCOMMIT",
+            pool_size=1,
+            max_overflow=0,
+        )
 
-            # Vacuum analyze each table
-            for table_name in Base.metadata.tables.keys():
-                try:
-                    # VACUUM cannot run inside a transaction, use autocommit
-                    await conn.execute(text(f"VACUUM ANALYZE {table_name}"))
-                    results.append({"operation": "VACUUM ANALYZE", "table": table_name, "status": "ok"})
-                except Exception as e:
-                    results.append({
-                        "operation": "VACUUM ANALYZE",
-                        "table": table_name,
-                        "status": f"error: {e}",
-                    })
+        try:
+            async with autocommit_engine.connect() as conn:
+                # Reindex each table individually (avoids superuser requirement)
+                for table_name in Base.metadata.tables.keys():
+                    try:
+                        await conn.execute(text(f"REINDEX TABLE {table_name}"))
+                        results.append({"operation": "REINDEX", "table": table_name, "status": "ok"})
+                    except Exception as e:
+                        results.append({"operation": "REINDEX", "table": table_name, "status": f"error: {e}"})
+
+                # Vacuum analyze each table
+                for table_name in Base.metadata.tables.keys():
+                    try:
+                        await conn.execute(text(f"VACUUM ANALYZE {table_name}"))
+                        results.append({"operation": "VACUUM ANALYZE", "table": table_name, "status": "ok"})
+                    except Exception as e:
+                        results.append({
+                            "operation": "VACUUM ANALYZE",
+                            "table": table_name,
+                            "status": f"error: {e}",
+                        })
+        finally:
+            await autocommit_engine.dispose()
 
         await write_audit_log(
             self.db,
