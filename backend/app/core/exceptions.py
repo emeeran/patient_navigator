@@ -112,6 +112,12 @@ class MIMEMismatchError(AppException):
     message = "File content does not match declared MIME type"
 
 
+class CompletedFollowUpError(AppException):
+    status_code = 400
+    error_code = "followup_already_completed"
+    message = "Completed follow-ups cannot be modified"
+
+
 async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
     """Format AppException as RFC 9457 Problem Details JSON."""
     return JSONResponse(
@@ -145,5 +151,6 @@ def register_exception_handlers(app):
         FileTooLargeError,
         InvalidFileTypeError,
         MIMEMismatchError,
+        CompletedFollowUpError,
     ]:
         app.add_exception_handler(exc_class, app_exception_handler)  # type: ignore[arg-type]
