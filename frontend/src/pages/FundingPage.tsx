@@ -31,7 +31,7 @@ export default function FundingPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const { data } = await fundingApi.list({ search: search || undefined, per_page: 20 });
+      const { data } = await fundingApi.list({ search: search || undefined, per_page: 20, is_active: true });
       setItems(data.items);
       setTotal(data.total);
     } catch { /* handled */ } finally { setLoading(false); }
