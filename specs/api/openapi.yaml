@@ -1,0 +1,1290 @@
+openapi: 3.1.0
+info:
+  title: Patient Navigator
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      tags:
+      - System
+      summary: Health Check
+      operationId: health_check_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Health Check Health Get
+  /auth/register:
+    post:
+      tags:
+      - Authentication
+      summary: Register
+      description: 'API-001: Register a new user (admin only).'
+      operationId: register_auth_register_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - OAuth2PasswordBearer: []
+  /auth/login:
+    post:
+      tags:
+      - Authentication
+      summary: Login
+      description: 'API-002: Authenticate and receive tokens.'
+      operationId: login_auth_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/refresh:
+    post:
+      tags:
+      - Authentication
+      summary: Refresh
+      description: 'API-003: Rotate access + refresh tokens.'
+      operationId: refresh_auth_refresh_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/logout:
+    post:
+      tags:
+      - Authentication
+      summary: Logout
+      description: 'API-004: Invalidate refresh token.'
+      operationId: logout_auth_logout_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - OAuth2PasswordBearer: []
+  /auth/me:
+    get:
+      tags:
+      - Authentication
+      summary: Me
+      description: 'API-005: Get current user profile.'
+      operationId: me_auth_me_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      security:
+      - OAuth2PasswordBearer: []
+  /admin/users:
+    get:
+      tags:
+      - Administration
+      summary: List Users
+      description: 'API-095: List all users (admin, paginated).'
+      operationId: list_users_admin_users_get
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Limit
+      - name: search
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Search
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /admin/users/{user_id}:
+    patch:
+      tags:
+      - Administration
+      summary: Update User
+      description: 'API-096: Update user role/status.'
+      operationId: update_user_admin_users__user_id__patch
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: User Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /admin/audit-log:
+    get:
+      tags:
+      - Administration
+      summary: List Audit Log
+      description: 'API-097: View audit log (admin only).'
+      operationId: list_audit_log_admin_audit_log_get
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Limit
+      - name: action_filter
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Action Filter
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: User Id
+      - name: entity_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Entity Type
+      - name: date_from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Date From
+      - name: date_to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Date To
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /patients:
+    post:
+      tags:
+      - Patients
+      summary: Create Patient
+      description: 'API-011: Create a new patient record.'
+      operationId: create_patient_patients_post
+      security:
+      - OAuth2PasswordBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Patients
+      summary: List Patients
+      description: 'API-010: List patients with pagination, search, and filters.'
+      operationId: list_patients_patients_get
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Per Page
+      - name: search
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Search
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: sort
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sort
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /patients/{patient_id}:
+    get:
+      tags:
+      - Patients
+      summary: Get Patient
+      description: 'API-012: Get patient by ID. PII masked based on role.'
+      operationId: get_patient_patients__patient_id__get
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: patient_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Patient Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Patients
+      summary: Update Patient
+      description: 'API-013: Update patient information.'
+      operationId: update_patient_patients__patient_id__patch
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: patient_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Patient Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Patients
+      summary: Archive Patient
+      description: 'API-014: Archive (soft delete) a patient.'
+      operationId: archive_patient_patients__patient_id__delete
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: patient_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Patient Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /patients/{patient_id}/cases:
+    post:
+      tags:
+      - Cases
+      summary: Create Case
+      description: 'API-021: Create a new case for a patient.'
+      operationId: create_case_patients__patient_id__cases_post
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: patient_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Patient Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Cases
+      summary: List Cases For Patient
+      description: 'API-020: List cases for a specific patient.'
+      operationId: list_cases_for_patient_patients__patient_id__cases_get
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: patient_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Patient Id
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Per Page
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /cases:
+    get:
+      tags:
+      - Cases
+      summary: List All Cases
+      description: 'API-025: List all cases with filters.'
+      operationId: list_all_cases_cases_get
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Per Page
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: priority
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Priority
+      - name: sort
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sort
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /cases/{case_id}:
+    get:
+      tags:
+      - Cases
+      summary: Get Case
+      description: 'API-022: Get case detail by ID.'
+      operationId: get_case_cases__case_id__get
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Case Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Cases
+      summary: Update Case
+      description: 'API-023: Update case fields.'
+      operationId: update_case_cases__case_id__patch
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /cases/{case_id}/status:
+    patch:
+      tags:
+      - Cases
+      summary: Transition Case Status
+      description: 'API-024: Transition case status through state machine.'
+      operationId: transition_case_status_cases__case_id__status_patch
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseStatusTransitionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /cases/{case_id}/timeline:
+    get:
+      tags:
+      - Cases
+      summary: Get Case Timeline
+      description: 'API-026: Get timeline events for a case.'
+      operationId: get_case_timeline_cases__case_id__timeline_get
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Case Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    AuditLogEntry:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        user_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: User Id
+        action:
+          type: string
+          title: Action
+        entity_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Entity Type
+        entity_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Entity Id
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        metadata_:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Metadata
+        ip_address:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ip Address
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - user_id
+      - action
+      - entity_type
+      - entity_id
+      - description
+      - ip_address
+      - created_at
+      title: AuditLogEntry
+    AuditLogListResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/AuditLogEntry'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        limit:
+          type: integer
+          title: Limit
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - limit
+      title: AuditLogListResponse
+    CaseCreateRequest:
+      properties:
+        diagnosis:
+          type: string
+          maxLength: 5000
+          minLength: 1
+          title: Diagnosis
+        priority:
+          type: string
+          enum:
+          - low
+          - medium
+          - high
+          - critical
+          title: Priority
+          default: medium
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 10000
+          - type: 'null'
+          title: Notes
+        recommended_hospital_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Recommended Hospital Id
+        applied_funding_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Applied Funding Id
+        assigned_clinician_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Assigned Clinician Id
+      type: object
+      required:
+      - diagnosis
+      title: CaseCreateRequest
+      description: POST /patients/{patientId}/cases.
+    CaseStatusTransitionRequest:
+      properties:
+        status:
+          type: string
+          enum:
+          - new
+          - under_review
+          - hospital_selected
+          - funding_applied
+          - treatment_started
+          - closed
+          title: Status
+      type: object
+      required:
+      - status
+      title: CaseStatusTransitionRequest
+      description: PATCH /cases/{id}/status.
+    CaseUpdateRequest:
+      properties:
+        diagnosis:
+          anyOf:
+          - type: string
+            maxLength: 5000
+            minLength: 1
+          - type: 'null'
+          title: Diagnosis
+        priority:
+          anyOf:
+          - type: string
+            enum:
+            - low
+            - medium
+            - high
+            - critical
+          - type: 'null'
+          title: Priority
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 10000
+          - type: 'null'
+          title: Notes
+        recommended_hospital_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Recommended Hospital Id
+        applied_funding_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Applied Funding Id
+        assigned_clinician_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Assigned Clinician Id
+      type: object
+      title: CaseUpdateRequest
+      description: "PATCH /cases/{id} \u2014 at least one field required."
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    LoginRequest:
+      properties:
+        email:
+          type: string
+          format: email
+          title: Email
+        password:
+          type: string
+          title: Password
+      type: object
+      required:
+      - email
+      - password
+      title: LoginRequest
+    LogoutRequest:
+      properties:
+        refresh_token:
+          type: string
+          title: Refresh Token
+      type: object
+      required:
+      - refresh_token
+      title: LogoutRequest
+    PatientCreateRequest:
+      properties:
+        full_name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Full Name
+        age:
+          type: integer
+          maximum: 150.0
+          minimum: 0.0
+          title: Age
+        gender:
+          type: string
+          enum:
+          - male
+          - female
+          - other
+          - prefer_not_to_say
+          title: Gender
+        phone:
+          anyOf:
+          - type: string
+            maxLength: 20
+          - type: 'null'
+          title: Phone
+        email:
+          anyOf:
+          - type: string
+            format: email
+          - type: 'null'
+          title: Email
+        address:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Address
+        emergency_contact_name:
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
+          title: Emergency Contact Name
+        emergency_contact_phone:
+          anyOf:
+          - type: string
+            maxLength: 20
+          - type: 'null'
+          title: Emergency Contact Phone
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 10000
+          - type: 'null'
+          title: Notes
+        navigator_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Navigator Id
+      type: object
+      required:
+      - full_name
+      - age
+      - gender
+      title: PatientCreateRequest
+      description: "POST /patients \u2014 all required PII fields, optional contact\
+        \ info."
+    PatientUpdateRequest:
+      properties:
+        full_name:
+          anyOf:
+          - type: string
+            maxLength: 255
+            minLength: 1
+          - type: 'null'
+          title: Full Name
+        age:
+          anyOf:
+          - type: integer
+            maximum: 150.0
+            minimum: 0.0
+          - type: 'null'
+          title: Age
+        gender:
+          anyOf:
+          - type: string
+            enum:
+            - male
+            - female
+            - other
+            - prefer_not_to_say
+          - type: 'null'
+          title: Gender
+        phone:
+          anyOf:
+          - type: string
+            maxLength: 20
+          - type: 'null'
+          title: Phone
+        email:
+          anyOf:
+          - type: string
+            format: email
+          - type: 'null'
+          title: Email
+        address:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Address
+        emergency_contact_name:
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
+          title: Emergency Contact Name
+        emergency_contact_phone:
+          anyOf:
+          - type: string
+            maxLength: 20
+          - type: 'null'
+          title: Emergency Contact Phone
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 10000
+          - type: 'null'
+          title: Notes
+        navigator_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Navigator Id
+        status:
+          anyOf:
+          - type: string
+            enum:
+            - active
+            - inactive
+            - archived
+          - type: 'null'
+          title: Status
+      type: object
+      title: PatientUpdateRequest
+      description: "PATCH /patients/{id} \u2014 at least one field required."
+    RefreshRequest:
+      properties:
+        refresh_token:
+          type: string
+          title: Refresh Token
+      type: object
+      required:
+      - refresh_token
+      title: RefreshRequest
+    RegisterRequest:
+      properties:
+        email:
+          type: string
+          format: email
+          title: Email
+        password:
+          type: string
+          maxLength: 128
+          minLength: 8
+          title: Password
+          description: 'Password: min 8 chars, upper, lower, digit, special'
+        full_name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Full Name
+        phone:
+          anyOf:
+          - type: string
+            maxLength: 20
+          - type: 'null'
+          title: Phone
+        role:
+          type: string
+          pattern: ^(admin|navigator|clinician|volunteer|patient)$
+          title: Role
+      type: object
+      required:
+      - email
+      - password
+      - full_name
+      - role
+      title: RegisterRequest
+    UserListItem:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        email:
+          type: string
+          title: Email
+        full_name:
+          type: string
+          title: Full Name
+        phone:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Phone
+        role:
+          type: string
+          title: Role
+        is_active:
+          type: boolean
+          title: Is Active
+        last_login_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Login At
+      type: object
+      required:
+      - id
+      - email
+      - full_name
+      - phone
+      - role
+      - is_active
+      - last_login_at
+      title: UserListItem
+    UserListResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/UserListItem'
+          type: array
+          title: Items
+        total:
+          type: integer
+          title: Total
+        page:
+          type: integer
+          title: Page
+        limit:
+          type: integer
+          title: Limit
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - limit
+      title: UserListResponse
+    UserUpdateRequest:
+      properties:
+        role:
+          anyOf:
+          - type: string
+            pattern: ^(admin|navigator|clinician|volunteer|patient)$
+          - type: 'null'
+          title: Role
+        is_active:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Active
+        full_name:
+          anyOf:
+          - type: string
+            maxLength: 255
+            minLength: 1
+          - type: 'null'
+          title: Full Name
+        phone:
+          anyOf:
+          - type: string
+            maxLength: 20
+          - type: 'null'
+          title: Phone
+      type: object
+      title: UserUpdateRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    OAuth2PasswordBearer:
+      type: oauth2
+      flows:
+        password:
+          scopes: {}
+          tokenUrl: /auth/login
