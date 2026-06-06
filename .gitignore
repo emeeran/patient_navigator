@@ -52,3 +52,11 @@ uploads/
 
 # Alembic
 backend/alembic/versions/__pycache__/
+
+# Dev runtime
+.dev-logs/
+.dev-pids/
+local/
+
+# Lint/format cache
+.ruff_cache/

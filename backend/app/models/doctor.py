@@ -1,6 +1,6 @@
 """Doctor model — scraped from government registries and public sources."""
 
-from sqlalchemy import Boolean, Float, String, Text
+from sqlalchemy import Boolean, Float, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
