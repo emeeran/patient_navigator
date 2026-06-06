@@ -72,6 +72,17 @@ export default function PatientsPage() {
     }
   };
 
+  const handleArchive = async (e: React.MouseEvent, patientId: string, name: string) => {
+    e.stopPropagation();
+    if (!confirm(`Archive patient "${name}"? This will soft-delete the record.`)) return;
+    try {
+      await patientsApi.archive(patientId);
+      loadPatients();
+    } catch {
+      /* interceptor */
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -109,6 +120,7 @@ export default function PatientsPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Gender</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Phone</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -130,11 +142,21 @@ export default function PatientsPage() {
                       {p.status}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    {p.status === "active" && (
+                      <button
+                        onClick={(e) => handleArchive(e, p.id, p.full_name)}
+                        className="px-3 py-1 text-xs font-medium bg-red-50 text-red-600 rounded-lg hover:bg-red-100"
+                      >
+                        Archive
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
               {patients.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     No patients found. Click "Add Patient" to create one.
                   </td>
                 </tr>
