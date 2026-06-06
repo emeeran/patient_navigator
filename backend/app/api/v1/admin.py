@@ -251,6 +251,33 @@ async def settings_health(
 # ── Data Scraping & Import ───────────────────────────────
 
 
+@router.post("/scrape/city")
+async def scrape_city(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+):
+    """API: Scrape hospitals or NGOs for a given city. Returns preview only (no DB writes)."""
+    city = (data.get("city") or "").strip()
+    entity_type = (data.get("entity_type") or "").strip().lower()
+    state = (data.get("state") or "").strip() or None
+
+    if not city:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="City name is required")
+    if entity_type not in ("hospitals", "ngos", "doctors"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="entity_type must be 'hospitals', 'ngos', or 'doctors'")
+
+    service = ScraperService(db)
+    records = await service.scrape_city(city, entity_type, state=state)
+    return {
+        "records": records,
+        "count": len(records),
+        "city": city.title(),
+    }
+
+
 @router.post("/scrape/hospitals")
 async def scrape_hospitals(
     data: dict,
@@ -306,6 +333,40 @@ async def import_hospitals_csv(
     return result
 
 
+@router.post("/import/ngos")
+async def import_ngos(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+):
+    """API: Bulk import NGOs/funding programs from a JSON array."""
+    ngos = data.get("ngos", [])
+    if not ngos:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="No NGOs provided")
+
+    service = ScraperService(db)
+    result = await service.bulk_import_ngos(ngos, current_user.id)
+    return result
+
+
+@router.post("/import/doctors")
+async def import_doctors(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+):
+    """API: Bulk import doctors from a JSON array."""
+    doctors = data.get("doctors", [])
+    if not doctors:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="No doctors provided")
+
+    service = ScraperService(db)
+    result = await service.bulk_import_doctors(doctors, current_user.id)
+    return result
+
+
 @router.post("/import/ngos/csv")
 async def import_ngos_csv(
     file: UploadFile = File(...),
@@ -322,6 +383,99 @@ async def import_ngos_csv(
     result = await service.bulk_import_ngos(records, current_user.id)
     result["errors"].extend(parse_errors)
     return result
+
+
+# ── Deduplication ────────────────────────────────────────
+
+
+@router.post("/dedup/hospitals")
+async def dedup_hospitals(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+):
+    """API: Find and remove duplicate hospitals (by name + city). Keeps the record with the most data."""
+    from app.models.hospital import Hospital
+
+    result = await db.execute(
+        select(Hospital).where(Hospital.is_active.is_(True)).order_by(Hospital.created_at)
+    )
+    hospitals = result.scalars().all()
+
+    # Group by lowercase(name + city)
+    from collections import defaultdict
+    groups: dict[str, list] = defaultdict(list)
+    for h in hospitals:
+        key = f"{h.name.strip().lower()}||{h.city.strip().lower()}"
+        groups[key].append(h)
+
+    removed = 0
+    for _key, group in groups.items():
+        if len(group) < 2:
+            continue
+        # Score each record by number of non-null/non-empty fields
+        def _score(h: Hospital) -> int:
+            return sum(1 for f in [h.address, h.phone, h.email, h.website, h.specialties, h.state]
+                       if f)
+        group.sort(key=_score, reverse=True)
+        # Keep the first (richest), archive the rest
+        for dup in group[1:]:
+            dup.is_active = False
+            removed += 1
+
+    await db.flush()
+
+    if removed > 0:
+        from app.services.auth_service import write_audit_log
+        await write_audit_log(
+            db, action="dedup.hospitals", user_id=current_user.id,
+            description=f"Removed {removed} duplicate hospitals",
+        )
+
+    return {"removed": removed, "kept": len(groups)}
+
+
+@router.post("/dedup/funding")
+async def dedup_funding(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("settings", "full")),
+):
+    """API: Find and remove duplicate funding programs (by name). Keeps the record with the most data."""
+    from app.models.funding_program import FundingProgram
+
+    result = await db.execute(
+        select(FundingProgram).where(FundingProgram.is_active.is_(True)).order_by(FundingProgram.created_at)
+    )
+    programs = result.scalars().all()
+
+    from collections import defaultdict
+    groups: dict[str, list] = defaultdict(list)
+    for p in programs:
+        key = p.name.strip().lower()
+        groups[key].append(p)
+
+    removed = 0
+    for _key, group in groups.items():
+        if len(group) < 2:
+            continue
+        def _score(p: FundingProgram) -> int:
+            return sum(1 for f in [p.description, p.provider, p.program_type,
+                                    p.eligibility_criteria, p.application_url,
+                                    p.contact_email, p.contact_phone] if f)
+        group.sort(key=_score, reverse=True)
+        for dup in group[1:]:
+            dup.is_active = False
+            removed += 1
+
+    await db.flush()
+
+    if removed > 0:
+        from app.services.auth_service import write_audit_log
+        await write_audit_log(
+            db, action="dedup.funding", user_id=current_user.id,
+            description=f"Removed {removed} duplicate funding programs",
+        )
+
+    return {"removed": removed, "kept": len(groups)}
 
 
 @router.get("/audit-log")

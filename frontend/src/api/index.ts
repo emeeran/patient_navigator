@@ -15,6 +15,8 @@ import type {
   SettingsUpdateResponse,
   ServiceHealthResponse,
   ScrapeResponse,
+  CityScrapeResponse,
+  ScrapedDoctor,
   ScrapedHospital,
   BulkImportResponse,
   DatabaseResetResponse,
@@ -175,8 +177,20 @@ export const adminApi = {
     api.get<ServiceHealthResponse>("/admin/settings/health"),
   scrapeHospitals: (url: string) =>
     api.post<ScrapeResponse>("/admin/scrape/hospitals", { url }),
+  scrapeCity: (city: string, entityType: "hospitals" | "ngos" | "doctors", state?: string) =>
+    api.post<CityScrapeResponse>("/admin/scrape/city", {
+      city, entity_type: entityType, state: state || undefined,
+    }),
   importHospitals: (hospitals: Record<string, unknown>[] | ScrapedHospital[]) =>
     api.post<BulkImportResponse>("/admin/import/hospitals", { hospitals }),
+  importNgos: (ngos: Record<string, unknown>[]) =>
+    api.post<BulkImportResponse>("/admin/import/ngos", { ngos }),
+  importDoctors: (doctors: Record<string, unknown>[]) =>
+    api.post<BulkImportResponse>("/admin/import/doctors", { doctors }),
+  dedupHospitals: () =>
+    api.post<{ removed: number; kept: number }>("/admin/dedup/hospitals"),
+  dedupFunding: () =>
+    api.post<{ removed: number; kept: number }>("/admin/dedup/funding"),
   importHospitalsCSV: (file: File) => {
     const form = new FormData();
     form.append("file", file);

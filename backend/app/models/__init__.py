@@ -2,8 +2,10 @@
 
 from app.models.audit_log import AuditLog
 from app.models.case import Case
+from app.models.doctor import Doctor
 from app.models.document import Document
 from app.models.funding_program import FundingProgram
+from app.models.hospital import Hospital
 from app.models.patient import Patient
 from app.models.refresh_token import RefreshToken
 from app.models.role import Role
@@ -20,6 +22,8 @@ __all__ = [
     "Case",
     "TimelineEvent",
     "Document",
+    "Doctor",
+    "Hospital",
     "FundingProgram",
     "SystemSetting",
 ]

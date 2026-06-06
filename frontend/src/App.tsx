@@ -16,6 +16,7 @@ import FollowUpsPage from "./pages/FollowUpsPage";
 import AIAssistantPage from "./pages/AIAssistantPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AuditLogPage from "./pages/AuditLogPage";
+import ScraperPage from "./pages/ScraperPage";
 import SettingsPage from "./pages/SettingsPage";
 
 export default function App() {
@@ -43,6 +44,7 @@ export default function App() {
             <Route path="/follow-ups" element={<FollowUpsPage />} />
             <Route path="/ai-assistant" element={<AIAssistantPage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/admin/data-scraper" element={<ScraperPage />} />
             <Route path="/admin/audit-log" element={<AuditLogPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

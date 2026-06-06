@@ -1,8 +1,9 @@
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { fundingApi } from "../api";
+import { fundingApi, adminApi } from "../api";
 import type { FundingProgram } from "../types";
 import Modal from "../components/Modal";
+import Pagination from "../components/Pagination";
 import { useAuth } from "../contexts/AuthContext";
 
 const emptyForm = {
@@ -16,6 +17,7 @@ export default function FundingPage() {
   const [items, setItems] = useState<FundingProgram[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editingItem, setEditingItem] = useState<FundingProgram | null>(null);
@@ -23,19 +25,30 @@ export default function FundingPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [confirmArchive, setConfirmArchive] = useState<string | null>(null);
+  const [dedupMsg, setDedupMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [deduping, setDeduping] = useState(false);
+  const [showDedupConfirm, setShowDedupConfirm] = useState(false);
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
-  useEffect(() => { load(); }, [search]);
+  useEffect(() => { setPage(1); }, [search]);
+  useEffect(() => { load(); }, [search, page]);
 
-  const load = async () => {
+  // Auto-dismiss dedup message after 5s
+  useEffect(() => {
+    if (!dedupMsg) return;
+    const t = setTimeout(() => setDedupMsg(null), 5000);
+    return () => clearTimeout(t);
+  }, [dedupMsg]);
+
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await fundingApi.list({ search: search || undefined, per_page: 20, is_active: true });
+      const { data } = await fundingApi.list({ search: search || undefined, per_page: 20, is_active: true, page });
       setItems(data.items);
       setTotal(data.total);
     } catch { /* handled */ } finally { setLoading(false); }
-  };
+  }, [search, page]);
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
@@ -92,9 +105,27 @@ export default function FundingPage() {
     try { await fundingApi.archive(id); setConfirmArchive(null); load(); } catch { /* handled */ }
   };
 
+  const handleDedup = async () => {
+    setDeduping(true);
+    setDedupMsg(null);
+    try {
+      const { data } = await adminApi.dedupFunding();
+      if (data.removed === 0) {
+        setDedupMsg({ type: "success", text: "No duplicates found. Directory is clean." });
+      } else {
+        setDedupMsg({ type: "success", text: `Removed ${data.removed} duplicate${data.removed !== 1 ? "s" : ""}. ${data.kept} unique programs remain.` });
+      }
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setDedupMsg({ type: "error", text: msg || "Dedup failed." });
+    } finally { setDeduping(false); }
+  };
+
   const modalTitle = editingItem ? `Edit: ${editingItem.name}` : "Add Funding Program";
   const showModal = showAdd || editingItem !== null;
   const closeModal = () => { setShowAdd(false); setEditingItem(null); setForm(emptyForm); };
+  const colCount = isAdmin ? 7 : 6;
 
   return (
     <div>
@@ -102,6 +133,13 @@ export default function FundingPage() {
         <h2 className="text-2xl font-bold text-gray-900">Funding Programs</h2>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500">{total} programs</span>
+          {isAdmin && (
+            <button onClick={() => setShowDedupConfirm(true)} disabled={deduping}
+              className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors inline-flex items-center gap-1.5">
+              {deduping && <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+              {deduping ? "Deduplicating…" : "🔧 Deduplicate"}
+            </button>
+          )}
           {isAdmin && (
             <button onClick={() => { setFormError(""); setShowAdd(true); }}
               className="px-4 py-2 bg-pink-600 text-white text-sm font-medium rounded-lg hover:bg-pink-700 transition-colors">
@@ -111,52 +149,105 @@ export default function FundingPage() {
         </div>
       </div>
 
-      <input type="text" placeholder="Search funding programs..." value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full px-4 py-2 mb-4 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
-
-      {loading ? <p className="text-gray-500">Loading...</p> : (
-        <div className="space-y-3">
-          {items.map((f) => (
-            <div key={f.id}
-              className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow cursor-pointer relative group"
-              onClick={() => navigate(`/funding/${f.id}`)}>
-              {isAdmin && (
-                <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => e.stopPropagation()}>
-                  <button onClick={(e) => openEdit(e, f)}
-                    className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded">Edit</button>
-                  <button onClick={() => setConfirmArchive(f.id)}
-                    className="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded">Delete</button>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <div>
-                  <h3 className="font-semibold text-gray-900">{f.name}</h3>
-                  {f.provider && <p className="text-sm text-gray-500">{f.provider}</p>}
-                </div>
-                <div className="text-right">
-                  {f.max_amount && <p className="text-sm font-medium text-green-600">Up to ${f.max_amount.toLocaleString()}</p>}
-                  {f.program_type && <span className="text-xs text-gray-500 capitalize">{f.program_type.replace("_", " ")}</span>}
-                </div>
-              </div>
-              {f.description && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{f.description}</p>}
-              {f.eligibility_criteria && (
-                <p className="text-xs text-gray-500 mt-2"><strong>Eligibility:</strong> {f.eligibility_criteria}</p>
-              )}
-              <div className="flex gap-3 mt-3">
-                {f.application_url && (
-                  <a href={f.application_url} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:underline">Apply →</a>
-                )}
-                {f.contact_email && (
-                  <a href={`mailto:${f.contact_email}`} className="text-xs text-gray-500 hover:underline">Contact</a>
-                )}
-              </div>
-            </div>
-          ))}
-          {items.length === 0 && <p className="text-center text-gray-500 py-8">No funding programs found.</p>}
+      {dedupMsg && (
+        <div className={`p-3 text-sm rounded-lg mb-4 flex items-center justify-between ${dedupMsg.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+          <span>{dedupMsg.text}</span>
+          <button onClick={() => setDedupMsg(null)} className="ml-3 opacity-60 hover:opacity-100 text-lg leading-none">&times;</button>
         </div>
+      )}
+
+      <input type="text" placeholder="Search funding programs…" value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full px-4 py-2 mb-4 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+
+      {loading ? (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Provider</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Type</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Max Amount</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Deadline</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Contact</th>
+                {isAdmin && <th className="px-4 py-3"></th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i}>
+                  {Array.from({ length: colCount }).map((_, j) => (
+                    <td key={j} className="px-4 py-3">
+                      <div className="h-4 bg-gray-100 rounded animate-pulse" style={{ width: `${60 + Math.random() * 40}%` }} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-[180px]">Name</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-[120px]">Provider</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Type</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Max Amount</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">Deadline</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-[140px]">Contact</th>
+                  {isAdmin && <th className="px-4 py-3 w-24"></th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {items.map((f) => (
+                  <tr key={f.id} className="hover:bg-blue-50/50 cursor-pointer transition-colors"
+                    onClick={() => navigate(`/funding/${f.id}`)}>
+                    <td className="px-4 py-3 font-medium text-gray-900">{f.name}</td>
+                    <td className="px-4 py-3 text-gray-600">{f.provider || "—"}</td>
+                    <td className="px-4 py-3">
+                      {f.program_type ? (
+                        <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-xs rounded-full capitalize font-medium">{f.program_type.replace("_", " ")}</span>
+                      ) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                      {f.max_amount ? `₹${f.max_amount.toLocaleString()}` : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                      {f.deadline ? new Date(f.deadline).toLocaleDateString() : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {f.contact_email ? (
+                        <a href={`mailto:${f.contact_email}`} onClick={(e) => e.stopPropagation()} className="text-xs text-blue-600 hover:underline">{f.contact_email}</a>
+                      ) : f.contact_phone || "—"}
+                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 space-x-2" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={(e) => openEdit(e, f)} className="text-xs text-blue-600 hover:underline">Edit</button>
+                        <button onClick={() => setConfirmArchive(f.id)} className="text-xs text-red-600 hover:underline">Delete</button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {items.length === 0 && (
+                  <tr>
+                    <td colSpan={colCount} className="text-center py-12">
+                      <p className="text-gray-400 text-sm">No funding programs found.</p>
+                      {search && <p className="text-gray-400 text-xs mt-1">Try a different search term.</p>}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {!loading && total > 0 && (
+        <Pagination page={page} total={total} perPage={20} onChange={setPage} />
       )}
 
       {/* Add/Edit Modal */}
@@ -166,69 +257,69 @@ export default function FundingPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Program Name *</label>
             <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
               <input type="text" value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Program Type</label>
               <input type="text" value={form.program_type} onChange={(e) => setForm({ ...form, program_type: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" placeholder="grant, insurance, charity..." />
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="grant, insurance, charity…" />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Eligibility Criteria</label>
             <textarea rows={2} value={form.eligibility_criteria}
               onChange={(e) => setForm({ ...form, eligibility_criteria: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Max Amount ($)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Max Amount (₹)</label>
               <input type="number" min={0} value={form.max_amount}
                 onChange={(e) => setForm({ ...form, max_amount: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Deadline</label>
               <input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Application URL</label>
             <input type="url" value={form.application_url}
               onChange={(e) => setForm({ ...form, application_url: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" placeholder="https://..." />
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="https://…" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Contact Email</label>
               <input type="email" value={form.contact_email}
                 onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Contact Phone</label>
               <input type="tel" value={form.contact_phone}
                 onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={closeModal} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
             <button type="submit" disabled={saving}
               className="px-4 py-2 bg-pink-600 text-white text-sm font-medium rounded-lg hover:bg-pink-700 disabled:opacity-50">
-              {saving ? "Saving..." : editingItem ? "Save Changes" : "Add Program"}
+              {saving ? "Saving…" : editingItem ? "Save Changes" : "Add Program"}
             </button>
           </div>
         </form>
@@ -245,6 +336,26 @@ export default function FundingPage() {
               <button onClick={() => setConfirmArchive(null)} className="px-4 py-2 text-sm text-gray-600">Cancel</button>
               <button onClick={() => handleArchive(confirmArchive)}
                 className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dedup Confirmation */}
+      {showDedupConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowDedupConfirm(false)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h3 className="text-lg font-semibold mb-2">Deduplicate Funding Programs?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              This will find programs with the same <span className="font-medium text-gray-800">name</span> and keep only the most complete record. Duplicates will be soft-deleted.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowDedupConfirm(false)} className="px-4 py-2 text-sm text-gray-600">Cancel</button>
+              <button onClick={() => { setShowDedupConfirm(false); handleDedup(); }}
+                className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600">
+                Run Dedup
+              </button>
             </div>
           </div>
         </div>

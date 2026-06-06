@@ -14,6 +14,7 @@ const navItems = [
 
 const adminNavItems = [
   { to: "/admin/users", label: "Users" },
+  { to: "/admin/data-scraper", label: "Data Scraper" },
   { to: "/admin/audit-log", label: "Audit Log" },
 ];
 

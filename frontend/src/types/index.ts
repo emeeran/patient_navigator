@@ -198,6 +198,41 @@ export interface ScrapeResponse {
   count: number;
 }
 
+export interface CityScrapeResponse {
+  records: ScrapedHospital[] | ScrapedNgo[];
+  count: number;
+  city: string;
+}
+
+export interface ScrapedNgo {
+  name: string;
+  description: string | null;
+  provider: string | null;
+  program_type: string | null;
+  eligibility_criteria: string | null;
+  max_amount: number | null;
+  min_amount: number | null;
+  application_url: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+}
+
+export interface ScrapedDoctor {
+  name: string;
+  city: string;
+  state: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  specialty: string | null;
+  qualification: string | null;
+  registration_number: string | null;
+  medical_council: string | null;
+  hospital_name: string | null;
+  practice_type: string | null;
+}
+
 export interface ScrapedHospital {
   name: string;
   city: string;
