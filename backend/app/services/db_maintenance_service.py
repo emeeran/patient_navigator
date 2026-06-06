@@ -25,7 +25,6 @@ class DbMaintenanceService:
     async def reset_database(self, user_id: uuid.UUID) -> dict:
         """Drop all tables and recreate them. Returns count of recreated tables."""
         async with engine.begin() as conn:
-            table_count_before = len(Base.metadata.tables)
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
             table_count_after = len(Base.metadata.tables)
@@ -142,7 +141,7 @@ class DbMaintenanceService:
         try:
             async with autocommit_engine.connect() as conn:
                 # Reindex each table individually (avoids superuser requirement)
-                for table_name in Base.metadata.tables.keys():
+                for table_name in Base.metadata.tables:
                     try:
                         await conn.execute(text(f"REINDEX TABLE {table_name}"))
                         results.append({"operation": "REINDEX", "table": table_name, "status": "ok"})
@@ -150,7 +149,7 @@ class DbMaintenanceService:
                         results.append({"operation": "REINDEX", "table": table_name, "status": f"error: {e}"})
 
                 # Vacuum analyze each table
-                for table_name in Base.metadata.tables.keys():
+                for table_name in Base.metadata.tables:
                     try:
                         await conn.execute(text(f"VACUUM ANALYZE {table_name}"))
                         results.append({"operation": "VACUUM ANALYZE", "table": table_name, "status": "ok"})
@@ -192,7 +191,7 @@ class DbMaintenanceService:
             for name in table_names:
                 # Get row count estimate (fast)
                 count_result = await conn.execute(text(
-                    f"SELECT reltuples::bigint AS estimate FROM pg_class WHERE relname = :name"
+                    "SELECT reltuples::bigint AS estimate FROM pg_class WHERE relname = :name"
                 ), {"name": name})
                 row = count_result.fetchone()
                 row_count = row[0] if row else 0

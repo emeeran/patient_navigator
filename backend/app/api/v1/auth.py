@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_client_ip, get_current_active_user
 from app.core.database import get_db
+from app.core.security import hash_password, verify_password
 from app.models.user import User
 from app.schemas.auth import (
     ChangePasswordRequest,
@@ -14,7 +15,6 @@ from app.schemas.auth import (
     RegisterRequest,
     UserProfileUpdateRequest,
 )
-from app.core.security import hash_password, verify_password
 from app.services.auth_service import AuthService, write_audit_log
 from app.services.rate_limiter import check_rate_limit, clear_rate_limit, record_failed_attempt
 
