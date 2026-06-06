@@ -83,6 +83,17 @@ export default function PatientsPage() {
     }
   };
 
+  const handleDelete = async (e: React.MouseEvent, patientId: string, name: string) => {
+    e.stopPropagation();
+    if (!confirm(`PERMANENTLY DELETE "${name}"?\n\nThis will remove the patient and ALL related records (cases, documents, medical profile). This cannot be undone.`)) return;
+    try {
+      await patientsApi.hardDelete(patientId);
+      loadPatients();
+    } catch {
+      /* interceptor */
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -151,6 +162,12 @@ export default function PatientsPage() {
                         Archive
                       </button>
                     )}
+                    <button
+                      onClick={(e) => handleDelete(e, p.id, p.full_name)}
+                      className="ml-2 px-3 py-1 text-xs font-medium bg-gray-50 text-gray-500 rounded-lg hover:bg-gray-100"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}

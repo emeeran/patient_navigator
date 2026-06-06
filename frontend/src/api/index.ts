@@ -35,6 +35,7 @@ export const patientsApi = {
   update: (id: string, data: Partial<Patient>) =>
     api.patch<Patient>(`/patients/${id}`, data),
   archive: (id: string) => api.delete(`/patients/${id}`),
+  hardDelete: (id: string) => api.delete(`/patients/${id}/hard`),
 };
 
 // ── Medical Profiles ──────────────────────────────────

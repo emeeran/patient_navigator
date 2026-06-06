@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_client_ip, get_current_active_user, require_role
 from app.core.database import get_db
+from app.core.exceptions import NotFoundError
+from app.models.patient import Patient
 from app.models.user import User
 from app.schemas.patient import (
     PatientCreateRequest,
@@ -16,6 +18,7 @@ from app.schemas.patient import (
     patient_list_item_to_dict,
     patient_to_dict,
 )
+from app.services.auth_service import write_audit_log
 from app.services.patient_service import PatientService
 from app.services.pii_masking import mask_patient_response
 
@@ -118,4 +121,40 @@ async def archive_patient(
         actor_id=current_user.id,
         ip_address=get_client_ip(request),
     )
+    return None
+
+
+@router.delete("/{patient_id}/hard", status_code=204)
+async def hard_delete_patient(
+    patient_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """Hard delete a patient and all related records (cases, documents, medical profile).
+
+    Admin only. This is irreversible — cascades remove cases, medical profiles,
+    and all associated data.
+    """
+    from sqlalchemy import text as sql_text
+
+    patient = await db.get(Patient, patient_id)
+    if not patient:
+        raise NotFoundError(f"Patient {patient_id} not found")
+
+    name = patient.full_name
+
+    # Delete via raw SQL to trigger DB-level CASCADE (bypasses ORM cascade limits)
+    await db.execute(sql_text("DELETE FROM patients WHERE id = :pid"), {"pid": patient_id})
+    await db.flush()
+
+    await write_audit_log(
+        db,
+        action="patient.hard_deleted",
+        user_id=current_user.id,
+        entity_type="patient",
+        description=f"Hard deleted patient {name} and all related records",
+        ip_address=get_client_ip(request),
+    )
+    await db.flush()
     return None
