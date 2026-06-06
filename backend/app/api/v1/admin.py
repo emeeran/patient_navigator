@@ -595,14 +595,19 @@ async def database_repair(
 @router.post("/database/reset")
 async def database_reset(
     data: dict,
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("settings", "full")),
 ) -> DatabaseResetResponse:
-    """API: Reset database — drop and recreate all tables. Requires confirm='RESET'."""
+    """API: Reset database — drop and recreate all tables. Requires confirm='RESET'.
+
+    Note: intentionally does NOT take a db session dependency — the reset drops
+    all tables, which would break any active session from get_db.
+    """
     if data.get("confirm") != "RESET":
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Confirmation required. Send {\"confirm\": \"RESET\"}")
 
-    service = DbMaintenanceService(db)
+    # DbMaintenanceService doesn't use the session for reset — it creates its
+    # own engine. Pass None since the session isn't needed.
+    service = DbMaintenanceService(None)  # type: ignore[arg-type]
     result = await service.reset_database(current_user.id)
     return DatabaseResetResponse(**result)

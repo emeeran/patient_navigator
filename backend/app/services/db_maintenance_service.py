@@ -23,26 +23,47 @@ class DbMaintenanceService:
         self.db = db
 
     async def reset_database(self, user_id: uuid.UUID) -> dict:
-        """Drop all tables and recreate them. Returns count of recreated tables."""
-        # Drop and recreate in a fresh connection
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-            await conn.run_sync(Base.metadata.create_all)
-            table_count_after = len(Base.metadata.tables)
+        """Drop all tables and recreate them. Returns count of recreated tables.
 
-        # Write audit log in a separate session since the caller's session
-        # may be broken after its underlying tables were dropped and recreated.
-        from app.core.database import async_session_factory
+        Uses a fresh engine to terminate stale connections, drop/create tables,
+        and write the audit log — all independently from the app's connection pool.
+        """
+        reset_engine = create_async_engine(
+            settings.DATABASE_URL,
+            pool_size=2,
+            max_overflow=0,
+        )
 
-        async with async_session_factory() as audit_db:
-            await write_audit_log(
-                audit_db,
-                action="database.reset",
-                user_id=user_id,
-                entity_type="database",
-                description=f"Database reset: dropped and recreated {table_count_after} tables",
-            )
-            await audit_db.commit()
+        try:
+            # Step 1: terminate all other DB connections to release locks
+            async with reset_engine.begin() as conn:
+                await conn.execute(text(
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                    "WHERE datname = current_database() AND pid <> pg_backend_pid()"
+                ))
+            await asyncio.sleep(0.5)
+
+            # Step 2: drop and recreate all tables
+            async with reset_engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
+                await conn.run_sync(Base.metadata.create_all)
+                table_count_after = len(Base.metadata.tables)
+
+            # Step 3: write audit log using same engine (tables are back)
+            async with reset_engine.begin() as conn:
+                import uuid as _uuid
+
+                await conn.execute(text(
+                    "INSERT INTO audit_log (id, action, entity_type, description, metadata) "
+                    "VALUES (:id, :action, :etype, :desc, '{}'::jsonb)"
+                ), {
+                    "id": _uuid.uuid4(),
+                    "action": "database.reset",
+                    "etype": "database",
+                    "desc": f"Database reset by {user_id}: dropped and recreated {table_count_after} tables",
+                })
+        finally:
+            await reset_engine.dispose()
 
         return {
             "reset_tables": table_count_after,

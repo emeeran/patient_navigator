@@ -10,12 +10,12 @@ INSERT INTO roles (id, name, description, permissions) VALUES
 ON CONFLICT (id) DO UPDATE SET permissions = EXCLUDED.permissions;
 
 INSERT INTO users (id, email, password_hash, full_name, role_id, is_active) VALUES
-  ('b0000000-0000-0000-0000-000000000001', 'admin@test.com', '$2b$12$Ng7gQAqBiHtXKjlFHy4YpujRlE.acMXfkRHHUP585HD9ZeHMliO.K', 'Test Admin', 'a0000000-0000-0000-0000-000000000001', true),
-  ('b0000000-0000-0000-0000-000000000002', 'navigator@test.com', '$2b$12$Ng7gQAqBiHtXKjlFHy4YpujRlE.acMXfkRHHUP585HD9ZeHMliO.K', 'Test Navigator', 'a0000000-0000-0000-0000-000000000002', true),
-  ('b0000000-0000-0000-0000-000000000003', 'clinician@test.com', '$2b$12$Ng7gQAqBiHtXKjlFHy4YpujRlE.acMXfkRHHUP585HD9ZeHMliO.K', 'Test Clinician', 'a0000000-0000-0000-0000-000000000003', true),
-  ('b0000000-0000-0000-0000-000000000004', 'volunteer@test.com', '$2b$12$Ng7gQAqBiHtXKjlFHy4YpujRlE.acMXfkRHHUP585HD9ZeHMliO.K', 'Test Volunteer', 'a0000000-0000-0000-0000-000000000004', true),
-  ('b0000000-0000-0000-0000-000000000005', 'patient@test.com', '$2b$12$Ng7gQAqBiHtXKjlFHy4YpujRlE.acMXfkRHHUP585HD9ZeHMliO.K', 'Test Patient', 'a0000000-0000-0000-0000-000000000005', true),
-  ('b0000000-0000-0000-0000-000000000006', 'disabled@test.com', '$2b$12$Ng7gQAqBiHtXKjlFHy4YpujRlE.acMXfkRHHUP585HD9ZeHMliO.K', 'Disabled Navigator', 'a0000000-0000-0000-0000-000000000002', false)
+  ('b0000000-0000-0000-0000-000000000001', 'admin@test.com', '$2b$12$8FkHd6ezyAXZWvWI/j3fde3617pEHLqgu9XSQ8UnO9iVjNaPNXZYq', 'Test Admin', 'a0000000-0000-0000-0000-000000000001', true),
+  ('b0000000-0000-0000-0000-000000000002', 'navigator@test.com', '$2b$12$8FkHd6ezyAXZWvWI/j3fde3617pEHLqgu9XSQ8UnO9iVjNaPNXZYq', 'Test Navigator', 'a0000000-0000-0000-0000-000000000002', true),
+  ('b0000000-0000-0000-0000-000000000003', 'clinician@test.com', '$2b$12$8FkHd6ezyAXZWvWI/j3fde3617pEHLqgu9XSQ8UnO9iVjNaPNXZYq', 'Test Clinician', 'a0000000-0000-0000-0000-000000000003', true),
+  ('b0000000-0000-0000-0000-000000000004', 'volunteer@test.com', '$2b$12$8FkHd6ezyAXZWvWI/j3fde3617pEHLqgu9XSQ8UnO9iVjNaPNXZYq', 'Test Volunteer', 'a0000000-0000-0000-0000-000000000004', true),
+  ('b0000000-0000-0000-0000-000000000005', 'patient@test.com', '$2b$12$8FkHd6ezyAXZWvWI/j3fde3617pEHLqgu9XSQ8UnO9iVjNaPNXZYq', 'Test Patient', 'a0000000-0000-0000-0000-000000000005', true),
+  ('b0000000-0000-0000-0000-000000000006', 'disabled@test.com', '$2b$12$8FkHd6ezyAXZWvWI/j3fde3617pEHLqgu9XSQ8UnO9iVjNaPNXZYq', 'Disabled Navigator', 'a0000000-0000-0000-0000-000000000002', false)
 ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash, is_active = EXCLUDED.is_active, role_id = EXCLUDED.role_id;
 
 INSERT INTO patients (id, full_name, age, gender, phone, email, address, emergency_contact_name, emergency_contact_phone, status, created_by) VALUES
