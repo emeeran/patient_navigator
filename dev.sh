@@ -52,6 +52,15 @@ cleanup() {
 cmd_stop() {
   log "Stopping dev servers..."
   cleanup
+  # Stop Ollama only if we started it
+  if [ -f "$PID_DIR/ollama.pid" ]; then
+    local pid
+    pid=$(cat "$PID_DIR/ollama.pid")
+    if kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null && warn "Stopped Ollama (PID $pid)"
+    fi
+    rm -f "$PID_DIR/ollama.pid"
+  fi
   ok "All stopped."
 }
 
@@ -81,20 +90,73 @@ cmd_logs() {
   tail -f "$LOG_DIR"/*.log 2>/dev/null || warn "No log files yet."
 }
 
+# ── Ollama ────────────────────────────────────────────────────────────────
+ensure_ollama() {
+  local ollama_url="http://localhost:11434"
+  local model="${OLLAMA_MODEL:-medgemma:4b}"
+
+  # Check if Ollama is already responding
+  if curl -sf "$ollama_url/api/tags" >/dev/null 2>&1; then
+    ok "Ollama is running"
+  else
+    log "Ollama not responding — starting it..."
+    if command -v systemctl >/dev/null 2>&1 && systemctl is-active ollama >/dev/null 2>&1; then
+      # Service is "active" but not responding yet — wait briefly
+      :
+    elif command -v systemctl >/dev/null 2>&1; then
+      sudo systemctl start ollama 2>/dev/null || true
+    fi
+
+    # If still not up, try launching directly
+    if ! curl -sf "$ollama_url/api/tags" >/dev/null 2>&1; then
+      if command -v ollama >/dev/null 2>&1; then
+        (ollama serve > "$LOG_DIR/ollama.log" 2>&1) &
+        echo $! > "$PID_DIR/ollama.pid"
+      else
+        warn "ollama CLI not found — AI features will be unavailable"
+        return
+      fi
+    fi
+
+    # Wait for Ollama to be ready
+    local tries=0
+    while ! curl -sf "$ollama_url/api/tags" >/dev/null 2>&1; do
+      tries=$((tries + 1))
+      [ "$tries" -lt 30 ] || { warn "Ollama did not start in time — AI features may be unavailable"; return; }
+      sleep 1
+    done
+    ok "Ollama started"
+  fi
+
+  # Verify the required model is available, pull if missing
+  if ollama list 2>/dev/null | grep -q "$model"; then
+    ok "Model $model is available"
+  else
+    log "Pulling model $model (this may take a while on first run)..."
+    ollama pull "$model" 2>&1 | tail -1
+    ok "Model $model ready"
+  fi
+}
+
 cmd_start() {
   # Prerequisite checks
   command -v uvicorn >/dev/null 2>&1 || die "uvicorn not found. Install: pip install uvicorn"
   command -v npx   >/dev/null 2>&1 || die "npx not found. Install: npm install"
 
   [ -d "$PID_DIR" ] && cmd_stop || true
+  # Kill any orphaned vite/uvicorn processes from previous sessions
+  pkill -f "vite --port" 2>/dev/null || true
   mkdir -p "$PID_DIR" "$LOG_DIR"
+
+  # ── Ollama ──────────────────────────────────────────────────────────────
+  ensure_ollama
 
   # ── Backend ──────────────────────────────────────────────────────────────
   local backend_port
   backend_port=$(find_port 8002)
   log "Starting backend on port $backend_port..."
   (cd "$ROOT_DIR/backend" && \
-    uvicorn app.main:app --reload --port "$backend_port" \
+    .venv/bin/python -m uvicorn app.main:app --reload --port "$backend_port" \
     > "$LOG_DIR/backend.log" 2>&1) &
   local backend_pid=$!
   echo "$backend_pid" > "$PID_DIR/backend.pid"

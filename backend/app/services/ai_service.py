@@ -216,14 +216,24 @@ async def _call_ollama(prompt: str, model: str | None = None) -> str:
             )
             if response.status_code == 200:
                 return response.json().get("response", "").strip()
-            logger.warning(f"Ollama returned {response.status_code}")
+
+            # Surface the actual Ollama error (e.g. OOM, model not found)
+            try:
+                detail = response.json().get("error", "")
+            except Exception:
+                detail = response.text[:200]
+            logger.warning("Ollama returned %d: %s", response.status_code, detail)
+            return (
+                f"[AI unavailable — Ollama error: {detail}] "
+                "Check that Ollama has enough memory to load the model."
+            )
     except httpx.ConnectError:
-        logger.warning("Ollama not available — returning placeholder response")
+        logger.warning("Ollama not reachable at %s", settings.OLLAMA_BASE_URL)
     except Exception as e:
-        logger.error(f"Ollama call failed: {e}")
+        logger.error("Ollama call failed: %s", e)
 
     # Fallback: return a helpful placeholder
     return (
-        "[AI summary placeholder — Ollama service not available] "
+        "[AI unavailable — Ollama service not reachable] "
         "Please ensure Ollama is running locally with a supported model."
     )

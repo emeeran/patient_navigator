@@ -120,9 +120,14 @@ class DocumentService:
             from app.services.ocr_service import extract_text_from_file
 
             text = extract_text_from_file(doc.stored_filename, doc.mime_type)
-            doc.ocr_text = text
-            doc.ocr_status = "completed"
-            doc.ocr_processed_at = datetime.now(UTC)
+            if text:
+                doc.ocr_text = text
+                doc.ocr_status = "completed"
+                doc.ocr_processed_at = datetime.now(UTC)
+            else:
+                # OCR engine unavailable or returned no text
+                doc.ocr_status = "failed"
+                doc.ocr_text = None
         except Exception:
             doc.ocr_status = "failed"
 

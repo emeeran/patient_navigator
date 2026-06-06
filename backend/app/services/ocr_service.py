@@ -1,6 +1,9 @@
-"""OCR service — wraps PaddleOCR for text extraction from documents."""
+"""OCR service — uses Tesseract (primary) or PaddleOCR for text extraction."""
 
 import logging
+import subprocess
+import tempfile
+from pathlib import Path
 
 from app.core.file_storage import file_exists
 
@@ -10,18 +13,31 @@ _ocr_engine = None
 
 
 def _get_ocr_engine():
-    """Lazy-load PaddleOCR engine (expensive to initialize)."""
+    """Lazy-load PaddleOCR engine (expensive to initialize).
+
+    Returns None if PaddleOCR is not installed or fails to initialize.
+    """
     global _ocr_engine
     if _ocr_engine is None:
         try:
             from paddleocr import PaddleOCR
 
-            _ocr_engine = PaddleOCR(use_angle_cls=True, lang="en", show_log=False)
+            _ocr_engine = PaddleOCR(lang="en")
             logger.info("PaddleOCR engine initialized")
         except ImportError:
-            logger.warning("PaddleOCR not installed — OCR will return empty text")
-            return None
+            logger.info("PaddleOCR not installed — using Tesseract fallback")
+        except Exception as exc:
+            logger.warning("PaddleOCR init failed: %s — using Tesseract fallback", exc)
     return _ocr_engine
+
+
+def _tesseract_available() -> bool:
+    """Check if the tesseract CLI is installed."""
+    try:
+        result = subprocess.run(["tesseract", "--version"], capture_output=True, timeout=5)
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
 
 
 def extract_text_from_file(stored_filename: str, mime_type: str) -> str:
@@ -33,74 +49,97 @@ def extract_text_from_file(stored_filename: str, mime_type: str) -> str:
     if not file_exists(stored_filename):
         raise FileNotFoundError(f"File not found: {stored_filename}")
 
-    engine = _get_ocr_engine()
-    if engine is None:
-        # PaddleOCR not available — return empty text
+    if mime_type == "application/pdf":
+        return _extract_pdf(stored_filename)
+    elif mime_type.startswith("image/"):
+        return _extract_image(stored_filename)
+    elif "wordprocessingml" in mime_type:
+        from app.core.file_storage import read_file
+        return _extract_from_docx(read_file(stored_filename))
+    else:
         return ""
 
-    try:
-        from app.core.file_storage import read_file
 
-        file_bytes = read_file(stored_filename)
-
-        if mime_type == "application/pdf":
-            return _extract_from_pdf(engine, file_bytes)
-        elif mime_type.startswith("image/"):
-            return _extract_from_image(engine, stored_filename)
-        elif "wordprocessingml" in mime_type:
-            return _extract_from_docx(file_bytes)
-        else:
-            return ""
-    except Exception as e:
-        logger.error(f"OCR failed for {stored_filename}: {e}")
-        raise RuntimeError(f"OCR processing failed: {e}") from e
-
-
-def _extract_from_image(engine, stored_filename: str) -> str:
-    """Extract text from an image file using PaddleOCR."""
+def _extract_image(stored_filename: str) -> str:
+    """Extract text from an image using Tesseract (fast) or PaddleOCR."""
     from app.core.file_storage import _ensure_upload_dir
 
-    file_path = _ensure_upload_dir() / stored_filename
-    result = engine.ocr(str(file_path), cls=True)
-    return _join_ocr_result(result)
+    file_path = (_ensure_upload_dir() / stored_filename).resolve()
+
+    # Try Tesseract first (fast, reliable)
+    if _tesseract_available():
+        return _tesseract_ocr(str(file_path))
+
+    # Fall back to PaddleOCR
+    engine = _get_ocr_engine()
+    if engine is not None:
+        result = engine.ocr(str(file_path))
+        return _join_paddle_result(result)
+
+    return ""
 
 
-def _extract_from_pdf(engine, file_bytes: bytes) -> str:
-    """Extract text from a PDF file.
+def _extract_pdf(stored_filename: str) -> str:
+    """Extract text from a PDF.
 
-    For simplicity, converts first page to image and runs OCR.
-    Full PDF OCR would require pdf2image (poppler) — deferred.
+    For simplicity, runs Tesseract on the PDF directly if supported,
+    otherwise returns empty text. Full PDF OCR would require pdf2image.
     """
-    # Try direct OCR on the raw bytes (PaddleOCR handles some PDFs)
-    import tempfile
-    from pathlib import Path
+    from app.core.file_storage import _ensure_upload_dir, read_file
 
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-        tmp.write(file_bytes)
-        tmp_path = tmp.name
+    file_path = (_ensure_upload_dir() / stored_filename).resolve()
 
+    # Tesseract can handle PDFs directly
+    if _tesseract_available():
+        return _tesseract_ocr(str(file_path))
+
+    # Try PaddleOCR with temp file
+    engine = _get_ocr_engine()
+    if engine is not None:
+        file_bytes = read_file(stored_filename)
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+        try:
+            result = engine.ocr(tmp_path)
+            return _join_paddle_result(result)
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
+
+    return ""
+
+
+def _tesseract_ocr(file_path: str) -> str:
+    """Run tesseract CLI on a file and return extracted text."""
     try:
-        result = engine.ocr(tmp_path, cls=True)
-        return _join_ocr_result(result)
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
+        result = subprocess.run(
+            ["tesseract", file_path, "stdout"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode == 0:
+            text = result.stdout.strip()
+            return text
+        logger.warning("Tesseract failed (rc=%d): %s", result.returncode, result.stderr[:200])
+        return ""
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        logger.warning("Tesseract error: %s", exc)
+        return ""
 
 
 def _extract_from_docx(file_bytes: bytes) -> str:
-    """Extract text from a DOCX file using python-docx or raw XML parsing."""
+    """Extract text from a DOCX file using raw XML parsing."""
     try:
         import io
+        import re
         import zipfile
 
-        # Simple text extraction from DOCX (no extra dependency needed)
         with zipfile.ZipFile(io.BytesIO(file_bytes)) as zf:
             text_parts = []
             for name in zf.namelist():
                 if name.startswith("word/document") and name.endswith(".xml"):
                     content = zf.read(name).decode("utf-8")
-                    # Strip XML tags — crude but effective for plain text
-                    import re
-
                     text = re.sub(r"<[^>]+>", " ", content)
                     text = re.sub(r"\s+", " ", text).strip()
                     if text:
@@ -111,12 +150,27 @@ def _extract_from_docx(file_bytes: bytes) -> str:
         return ""
 
 
-def _join_ocr_result(result) -> str:
+def _join_paddle_result(result) -> str:
     """Join PaddleOCR result blocks into a single text string."""
-    if not result or not result[0]:
+    if not result:
         return ""
+
     lines = []
-    for line in result[0]:
-        if line and len(line) >= 2:
-            lines.append(line[1][0])  # text content
+    for page in result:
+        if not page:
+            continue
+        if isinstance(page, dict):
+            rec_text = page.get("rec_text")
+            if rec_text:
+                lines.append(rec_text)
+        elif isinstance(page, list):
+            for line in page:
+                if isinstance(line, dict):
+                    rec_text = line.get("rec_text")
+                    if rec_text:
+                        lines.append(rec_text)
+                elif isinstance(line, (list, tuple)) and len(line) >= 2:
+                    text = line[1][0] if isinstance(line[1], (list, tuple)) else str(line[1])
+                    lines.append(text)
+
     return "\n".join(lines)

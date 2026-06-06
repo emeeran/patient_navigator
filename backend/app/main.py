@@ -1,18 +1,60 @@
 """FastAPI application entry point."""
 
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 
+logger = logging.getLogger(__name__)
+
+
+async def _check_ollama() -> bool:
+    """Check if Ollama is reachable and the default model is available."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{settings.OLLAMA_BASE_URL}/api/tags")
+            if resp.status_code != 200:
+                return False
+            models = [m.get("name", "") for m in resp.json().get("models", [])]
+            if settings.DEFAULT_MODEL in models:
+                logger.info(
+                    "Ollama ready — model %s available (%d models total)",
+                    settings.DEFAULT_MODEL,
+                    len(models),
+                )
+                return True
+            else:
+                logger.warning(
+                    "Ollama running but model %s not found. "
+                    "Available: %s. Run: ollama pull %s",
+                    settings.DEFAULT_MODEL,
+                    ", ".join(models) or "(none)",
+                    settings.DEFAULT_MODEL,
+                )
+                return False
+    except httpx.ConnectError:
+        logger.warning(
+            "Ollama not reachable at %s — AI features disabled. "
+            "Start it with: ollama serve  or  sudo systemctl start ollama",
+            settings.OLLAMA_BASE_URL,
+        )
+        return False
+    except Exception as exc:
+        logger.warning("Ollama health check failed: %s", exc)
+        return False
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifespan: verify database connectivity on startup."""
+    """Application lifespan: verify services on startup."""
+    ollama_ok = await _check_ollama()
+    app.state.ollama_ready = ollama_ok
     yield
 
 

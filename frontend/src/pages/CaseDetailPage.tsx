@@ -112,13 +112,13 @@ export default function CaseDetailPage() {
   };
 
   const handlePreview = async (docId: string) => {
-    if (ocrTexts[docId]) {
+    if (ocrTexts[docId] !== undefined) {
       setOcrTexts((prev) => { const n = { ...prev }; delete n[docId]; return n; });
       return;
     }
     try {
       const { data } = await documentsApi.preview(docId);
-      if (data.ocr_text) setOcrTexts((prev) => ({ ...prev, [docId]: data.ocr_text! }));
+      setOcrTexts((prev) => ({ ...prev, [docId]: data.ocr_text || "" }));
     } catch { /* ignore */ }
   };
 
@@ -372,10 +372,14 @@ export default function CaseDetailPage() {
                       </button>
                     </div>
                   </div>
-                  {ocrTexts[doc.id] && (
+                  {ocrTexts[doc.id] !== undefined && (
                     <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                       <p className="text-xs font-medium text-gray-600 mb-1">Extracted Text:</p>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{ocrTexts[doc.id]}</p>
+                      {ocrTexts[doc.id] ? (
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{ocrTexts[doc.id]}</p>
+                      ) : (
+                        <p className="text-sm text-amber-600 italic">No text was extracted. The OCR engine may be unavailable or the image contains no readable text.</p>
+                      )}
                     </div>
                   )}
                 </div>
