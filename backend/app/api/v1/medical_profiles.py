@@ -137,3 +137,29 @@ async def update_medical_profile(
     )
 
     return medical_profile_to_dict(profile)
+
+
+@router.delete("/{patient_id}/medical-profile", status_code=204)
+async def delete_medical_profile(
+    patient_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin", "navigator")),
+):
+    """Delete the medical profile for a patient."""
+    await _get_patient_or_404(db, patient_id)
+    profile = await _get_profile_or_404(db, patient_id)
+
+    await write_audit_log(
+        db,
+        action="medical_profile.deleted",
+        user_id=current_user.id,
+        entity_type="medical_profile",
+        entity_id=profile.id,
+        description=f"Deleted medical profile for patient {patient_id}",
+        ip_address=get_client_ip(request),
+    )
+
+    await db.delete(profile)
+    await db.flush()
+    return None

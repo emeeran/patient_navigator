@@ -88,6 +88,17 @@ export default function CaseDetailPage() {
     } catch { /* interceptor */ }
   };
 
+  // ── Archive case ──
+  const handleArchiveCase = async () => {
+    if (!confirm("Archive this case? This will soft-delete the record.")) return;
+    try {
+      await casesApi.archive(caseId!);
+      window.history.back();
+    } catch {
+      /* interceptor */
+    }
+  };
+
   // ── Document actions ──
   const handleOcr = async (docId: string) => {
     setOcrLoading(docId);
@@ -228,6 +239,14 @@ export default function CaseDetailPage() {
             {caseData.notes && <p className="text-sm text-gray-600 mt-2">{caseData.notes}</p>}
           </div>
           <div className="flex items-center gap-3">
+            {caseData.status !== "closed" && (
+              <button
+                onClick={handleArchiveCase}
+                className="px-4 py-2 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100"
+              >
+                Archive
+              </button>
+            )}
             <select
               value={caseData.status}
               onChange={(e) => handleStatusChange(e.target.value)}

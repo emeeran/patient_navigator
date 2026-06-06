@@ -45,6 +45,8 @@ export const medicalProfilesApi = {
     api.post<MedicalProfile>(`/patients/${patientId}/medical-profile`, data),
   update: (patientId: string, data: Partial<MedicalProfile>) =>
     api.patch<MedicalProfile>(`/patients/${patientId}/medical-profile`, data),
+  remove: (patientId: string) =>
+    api.delete(`/patients/${patientId}/medical-profile`),
 };
 
 // ── Cases ───────────────────────────────────────────────

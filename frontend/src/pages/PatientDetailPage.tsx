@@ -339,6 +339,16 @@ export default function PatientDetailPage() {
     setMedError("");
   };
 
+  const handleDeleteProfile = async () => {
+    if (!confirm("Delete this medical profile? This cannot be undone.")) return;
+    try {
+      await medicalProfilesApi.remove(patientId!);
+      setMedProfile(null);
+    } catch {
+      /* interceptor */
+    }
+  };
+
   const statusColor = (status: string) => {
     const map: Record<string, string> = {
       new: "bg-blue-100 text-blue-700",
@@ -566,12 +576,22 @@ export default function PatientDetailPage() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Medical Profile</h3>
             {!medEditing && (
-              <button
-                onClick={startMedEdit}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
-              >
-                {medProfile ? "Edit" : "Add Medical Profile"}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={startMedEdit}
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                >
+                  {medProfile ? "Edit" : "Add Medical Profile"}
+                </button>
+                {medProfile && (
+                  <button
+                    onClick={handleDeleteProfile}
+                    className="px-4 py-2 border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
