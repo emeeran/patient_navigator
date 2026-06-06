@@ -44,9 +44,9 @@ class MedicalProfile(TimestampMixin, Base):
     allergies: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Relationships
+    # Relationships — no eager loading on back-ref to avoid recursive selectin cycle
     patient: Mapped["Patient"] = relationship(
-        back_populates="medical_profile", lazy="selectin"
+        back_populates="medical_profile", lazy="noload"
     )
 
     __table_args__ = (

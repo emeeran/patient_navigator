@@ -24,19 +24,25 @@ class DbMaintenanceService:
 
     async def reset_database(self, user_id: uuid.UUID) -> dict:
         """Drop all tables and recreate them. Returns count of recreated tables."""
+        # Drop and recreate in a fresh connection
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
             table_count_after = len(Base.metadata.tables)
 
-        await write_audit_log(
-            self.db,
-            action="database.reset",
-            user_id=user_id,
-            entity_type="database",
-            description=f"Database reset: dropped and recreated {table_count_after} tables",
-        )
-        await self.db.flush()
+        # Write audit log in a separate session since the caller's session
+        # may be broken after its underlying tables were dropped and recreated.
+        from app.core.database import async_session_factory
+
+        async with async_session_factory() as audit_db:
+            await write_audit_log(
+                audit_db,
+                action="database.reset",
+                user_id=user_id,
+                entity_type="database",
+                description=f"Database reset: dropped and recreated {table_count_after} tables",
+            )
+            await audit_db.commit()
 
         return {
             "reset_tables": table_count_after,

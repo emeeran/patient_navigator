@@ -43,6 +43,7 @@ class Patient(TimestampMixin, Base):
     creator: Mapped["User"] = relationship(foreign_keys=[created_by], lazy="selectin")
     medical_profile: Mapped["MedicalProfile | None"] = relationship(
         back_populates="patient", lazy="selectin", uselist=False,
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (
