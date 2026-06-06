@@ -1,6 +1,7 @@
 import api from "./client";
 import type {
   Patient,
+  MedicalProfile,
   Case,
   Document,
   Hospital,
@@ -34,6 +35,16 @@ export const patientsApi = {
   update: (id: string, data: Partial<Patient>) =>
     api.patch<Patient>(`/patients/${id}`, data),
   archive: (id: string) => api.delete(`/patients/${id}`),
+};
+
+// ── Medical Profiles ──────────────────────────────────
+export const medicalProfilesApi = {
+  get: (patientId: string) =>
+    api.get<MedicalProfile>(`/patients/${patientId}/medical-profile`),
+  create: (patientId: string, data: Partial<MedicalProfile>) =>
+    api.post<MedicalProfile>(`/patients/${patientId}/medical-profile`, data),
+  update: (patientId: string, data: Partial<MedicalProfile>) =>
+    api.patch<MedicalProfile>(`/patients/${patientId}/medical-profile`, data),
 };
 
 // ── Cases ───────────────────────────────────────────────

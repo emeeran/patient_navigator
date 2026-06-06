@@ -118,6 +118,12 @@ class CompletedFollowUpError(AppException):
     message = "Completed follow-ups cannot be modified"
 
 
+class ConflictError(AppException):
+    status_code = 409
+    error_code = "conflict"
+    message = "Resource already exists"
+
+
 async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
     """Format AppException as RFC 9457 Problem Details JSON."""
     return JSONResponse(
@@ -152,5 +158,6 @@ def register_exception_handlers(app):
         InvalidFileTypeError,
         MIMEMismatchError,
         CompletedFollowUpError,
+        ConflictError,
     ]:
         app.add_exception_handler(exc_class, app_exception_handler)  # type: ignore[arg-type]

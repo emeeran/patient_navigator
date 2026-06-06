@@ -78,6 +78,9 @@ def mask_patient_response(data: dict, role: str) -> dict:
             result["emergency_contact_name"] = "***"
         if result.get("emergency_contact_phone"):
             result["emergency_contact_phone"] = "***"
+        # Volunteers must not see clinical data
+        if "medical_profile" in result:
+            result["medical_profile"] = None
         return result
 
     return result

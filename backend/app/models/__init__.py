@@ -6,6 +6,7 @@ from app.models.doctor import Doctor
 from app.models.document import Document
 from app.models.funding_program import FundingProgram
 from app.models.hospital import Hospital
+from app.models.medical_profile import MedicalProfile
 from app.models.patient import Patient
 from app.models.refresh_token import RefreshToken
 from app.models.role import Role
@@ -26,4 +27,5 @@ __all__ = [
     "Hospital",
     "FundingProgram",
     "SystemSetting",
+    "MedicalProfile",
 ]

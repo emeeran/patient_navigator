@@ -1,7 +1,7 @@
 """Pydantic schemas for Patient endpoints — DATA-003, API-010..014."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
@@ -88,6 +88,7 @@ class PatientResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None
+    medical_profile: dict[str, Any] | None = None
 
 
 class PatientListItem(BaseModel):
@@ -120,7 +121,9 @@ class PatientListResponse(BaseModel):
 
 def patient_to_dict(patient: object) -> dict:
     """Convert a Patient ORM object to a dict for PatientResponse serialization."""
-    return {
+    from app.schemas.medical_profile import medical_profile_to_dict
+
+    result = {
         "id": patient.id,
         "full_name": patient.full_name,
         "age": patient.age,
@@ -138,6 +141,11 @@ def patient_to_dict(patient: object) -> dict:
         "updated_at": patient.updated_at,
         "deleted_at": patient.deleted_at,
     }
+    if hasattr(patient, "medical_profile") and patient.medical_profile is not None:
+        result["medical_profile"] = medical_profile_to_dict(patient.medical_profile)
+    else:
+        result["medical_profile"] = None
+    return result
 
 
 def patient_list_item_to_dict(patient: object) -> dict:

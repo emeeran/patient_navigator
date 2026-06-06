@@ -11,6 +11,7 @@ from app.core.database import Base
 from app.models.base import TimestampMixin
 
 if TYPE_CHECKING:
+    from app.models.medical_profile import MedicalProfile
     from app.models.user import User
 
 
@@ -40,6 +41,9 @@ class Patient(TimestampMixin, Base):
     # Relationships
     navigator: Mapped["User | None"] = relationship(foreign_keys=[navigator_id], lazy="selectin")
     creator: Mapped["User"] = relationship(foreign_keys=[created_by], lazy="selectin")
+    medical_profile: Mapped["MedicalProfile | None"] = relationship(
+        back_populates="patient", lazy="selectin", uselist=False,
+    )
 
     __table_args__ = (
         Index("idx_patients_status", "status"),

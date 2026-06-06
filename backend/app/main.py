@@ -50,11 +50,13 @@ from app.api.v1.documents import router as documents_router  # noqa: E402
 from app.api.v1.follow_ups import router as follow_ups_router  # noqa: E402
 from app.api.v1.funding import router as funding_router  # noqa: E402
 from app.api.v1.hospitals import router as hospitals_router  # noqa: E402
+from app.api.v1.medical_profiles import router as medical_profiles_router  # noqa: E402
 from app.api.v1.patients import router as patients_router  # noqa: E402
 
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(admin_router, prefix="/admin", tags=["Administration"])
 app.include_router(patients_router, prefix="/patients", tags=["Patients"])
+app.include_router(medical_profiles_router, prefix="/patients", tags=["Medical Profiles"])
 app.include_router(cases_router, prefix="", tags=["Cases"])
 app.include_router(documents_router, prefix="", tags=["Documents"])
 app.include_router(ai_router, prefix="", tags=["AI & Reviews"])

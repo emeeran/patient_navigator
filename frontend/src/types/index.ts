@@ -34,6 +34,25 @@ export interface Patient {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  medical_profile: MedicalProfile | null;
+}
+
+export interface MedicalProfile {
+  id: string;
+  patient_id: string;
+  date_of_birth: string | null;
+  height_cm: number | null;
+  weight_kg: number | null;
+  bmi: number | null;
+  blood_type: string | null;
+  past_medical_history: string[] | null;
+  family_medical_history: { relation: string; condition: string }[] | null;
+  chronic_conditions: string[] | null;
+  current_medications: string[] | null;
+  allergies: string[] | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Case {
