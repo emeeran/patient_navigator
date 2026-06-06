@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_active_user
+from app.api.deps import get_client_ip, get_current_active_user
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.auth import (
@@ -21,14 +21,6 @@ from app.services.rate_limiter import check_rate_limit, clear_rate_limit, record
 router = APIRouter()
 
 
-def _get_ip(request: Request) -> str:
-    """Extract client IP from request."""
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
-
-
 @router.post("/register", status_code=201)
 async def register(
     data: RegisterRequest,
@@ -43,7 +35,7 @@ async def register(
     await checker(current_user)
 
     service = AuthService(db)
-    user = await service.register(data, current_user.id, ip_address=_get_ip(request))
+    user = await service.register(data, current_user.id, ip_address=get_client_ip(request))
     return _serialize_user_profile(user)
 
 
@@ -54,7 +46,7 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ):
     """API-002: Authenticate and receive tokens."""
-    ip = _get_ip(request)
+    ip = get_client_ip(request)
     await check_rate_limit(data.email, ip)
 
     service = AuthService(db)
@@ -134,7 +126,7 @@ async def change_password(
         action="user.password_changed",
         user_id=current_user.id,
         description="User changed their password",
-        ip_address=_get_ip(request),
+        ip_address=get_client_ip(request),
     )
     await db.flush()
 

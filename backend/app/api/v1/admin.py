@@ -8,7 +8,7 @@ from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_permission
+from app.api.deps import get_client_ip, require_permission
 from app.core.database import get_db
 from app.core.security import hash_password
 from app.models.audit_log import AuditLog
@@ -38,14 +38,6 @@ from app.services.scraper_service import ScraperService
 from app.services.settings_service import GROUP_LABELS, SettingsService
 
 router = APIRouter()
-
-
-def _get_ip(request) -> str:
-    """Extract client IP from request."""
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
 
 
 @router.get("/users")
@@ -102,7 +94,7 @@ async def create_user(
 ):
     """API: Create a new user (admin only)."""
     service = AuthService(db)
-    user = await service.register(data, current_user.id, ip_address=_get_ip(request))
+    user = await service.register(data, current_user.id, ip_address=get_client_ip(request))
     return {
         "id": user.id,
         "email": user.email,
@@ -204,7 +196,7 @@ async def admin_reset_password(
         entity_type="user",
         entity_id=user.id,
         description=f"Admin reset password for {user.email}",
-        ip_address=_get_ip(request),
+        ip_address=get_client_ip(request),
     )
     await db.flush()
 

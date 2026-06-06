@@ -10,35 +10,11 @@ from app.core.exceptions import (
     ArchivedPatientError,
     NotFoundError,
 )
-from app.models.audit_log import AuditLog
 from app.models.case import Case
 from app.models.timeline_event import TimelineEvent
 from app.schemas.case import CaseCreateRequest, CaseUpdateRequest
+from app.services.auth_service import write_audit_log
 from app.services.state_machine import validate_transition
-
-
-async def _write_audit_log(
-    db: AsyncSession,
-    *,
-    action: str,
-    user_id: uuid.UUID | None = None,
-    entity_type: str | None = None,
-    entity_id: uuid.UUID | None = None,
-    description: str | None = None,
-    ip_address: str | None = None,
-) -> AuditLog:
-    """Write an entry to the audit log."""
-    entry = AuditLog(
-        user_id=user_id,
-        action=action,
-        entity_type=entity_type,
-        entity_id=entity_id,
-        description=description,
-        ip_address=ip_address,
-    )
-    db.add(entry)
-    await db.flush()
-    return entry
 
 
 async def _write_timeline_event(
@@ -118,7 +94,7 @@ class CaseService:
             new_value="new",
         )
 
-        await _write_audit_log(
+        await write_audit_log(
             self.db,
             action="case.created",
             user_id=actor_id,
@@ -234,7 +210,7 @@ class CaseService:
                 description=f"Updated fields: {', '.join(changed)}",
             )
 
-        await _write_audit_log(
+        await write_audit_log(
             self.db,
             action="case.updated",
             user_id=actor_id,
@@ -291,7 +267,7 @@ class CaseService:
             new_value=new_status,
         )
 
-        await _write_audit_log(
+        await write_audit_log(
             self.db,
             action=f"case.status_changed.{new_status}",
             user_id=actor_id,

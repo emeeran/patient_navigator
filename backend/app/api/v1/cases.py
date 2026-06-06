@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_active_user, require_role
+from app.api.deps import get_client_ip, get_current_active_user, require_role
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.case import (
@@ -42,7 +42,7 @@ async def create_case(
         patient_id=patient_id,
         data=data,
         actor_id=current_user.id,
-        ip_address=_get_ip(request),
+        ip_address=get_client_ip(request),
     )
     return case_to_dict(case)
 
@@ -126,7 +126,7 @@ async def update_case(
         case_id=case_id,
         data=data,
         actor_id=current_user.id,
-        ip_address=_get_ip(request),
+        ip_address=get_client_ip(request),
     )
     return case_to_dict(case)
 
@@ -145,7 +145,7 @@ async def transition_case_status(
         case_id=case_id,
         new_status=data.status,
         actor_id=current_user.id,
-        ip_address=_get_ip(request),
+        ip_address=get_client_ip(request),
     )
     return case_to_dict(case)
 
@@ -179,11 +179,3 @@ async def delete_case(
     case.deleted_at = datetime.now(UTC)
     await db.flush()
     return None
-
-
-def _get_ip(request: Request) -> str:
-    """Extract client IP from request."""
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"

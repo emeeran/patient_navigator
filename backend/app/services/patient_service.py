@@ -7,33 +7,9 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ArchivedPatientError, NotFoundError
-from app.models.audit_log import AuditLog
 from app.models.patient import Patient
 from app.schemas.patient import PatientCreateRequest, PatientUpdateRequest
-
-
-async def _write_audit_log(
-    db: AsyncSession,
-    *,
-    action: str,
-    user_id: uuid.UUID | None = None,
-    entity_type: str | None = None,
-    entity_id: uuid.UUID | None = None,
-    description: str | None = None,
-    ip_address: str | None = None,
-) -> AuditLog:
-    """Write an entry to the audit log."""
-    entry = AuditLog(
-        user_id=user_id,
-        action=action,
-        entity_type=entity_type,
-        entity_id=entity_id,
-        description=description,
-        ip_address=ip_address,
-    )
-    db.add(entry)
-    await db.flush()
-    return entry
+from app.services.auth_service import write_audit_log
 
 
 class PatientService:
@@ -67,7 +43,7 @@ class PatientService:
         await self.db.flush()
         await self.db.refresh(patient)
 
-        await _write_audit_log(
+        await write_audit_log(
             self.db,
             action="patient.created",
             user_id=actor_id,
@@ -162,7 +138,7 @@ class PatientService:
         await self.db.flush()
         await self.db.refresh(patient)
 
-        await _write_audit_log(
+        await write_audit_log(
             self.db,
             action="patient.updated",
             user_id=actor_id,
@@ -188,7 +164,7 @@ class PatientService:
         patient.status = "archived"
         await self.db.flush()
 
-        await _write_audit_log(
+        await write_audit_log(
             self.db,
             action="patient.archived",
             user_id=actor_id,

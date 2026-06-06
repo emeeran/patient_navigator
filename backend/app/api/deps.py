@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +12,14 @@ from app.models.user import User
 from app.services.auth_service import AuthService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request, respecting X-Forwarded-For."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 # Permission hierarchy: higher number = more access
 LEVEL_RANK = {"full": 4, "read": 3, "review": 3, "own": 2, "none": 0}
