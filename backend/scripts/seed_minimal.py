@@ -1,12 +1,30 @@
-"""Quick seed — creates roles, users, patients, cases via parameterized SQL."""
+"""Quick seed — creates roles, users, patients, cases via parameterized SQL.
+
+Usage:
+    cd backend && python scripts/seed_minimal.py
+
+Generates the password hash dynamically so it always matches the
+installed bcrypt library. Stops the dev backend first to avoid lock
+contention:
+    ./dev.sh stop && cd backend && python scripts/seed_minimal.py && cd .. && ./dev.sh start
+"""
 
 import asyncio
+import json
 import os
 
+# Prevent SQLAlchemy echo (DEBUG=true causes massive I/O that hangs asyncpg)
 os.environ["DEBUG"] = "false"
 
-from sqlalchemy import text
-from app.core.database import engine
+from sqlalchemy import create_engine, text
+
+# Read the DB URL from app config (sync driver for simple scripting)
+from app.core.config import settings
+
+SYNC_URL = settings.DATABASE_URL_SYNC
+print(f"Connecting to: {SYNC_URL.split('@')[1] if '@' in SYNC_URL else SYNC_URL}")
+
+# Generate password hash dynamically — always matches the installed bcrypt
 from app.core.security import hash_password
 
 PWD = hash_password("TestPass123!")
@@ -61,13 +79,14 @@ CASES = [
 NAV_ID = "b0000000-0000-0000-0000-000000000002"
 
 
-async def seed():
-    import json
+def seed():
+    """Seed using synchronous psycopg2 — no async event loop issues."""
+    engine = create_engine(SYNC_URL, echo=False)
 
-    async with engine.begin() as conn:
+    with engine.begin() as conn:
         # Roles
         for rid, name, desc, perms in ROLES:
-            await conn.execute(
+            conn.execute(
                 text("""
                     INSERT INTO roles (id, name, description, permissions)
                     VALUES (CAST(:id AS uuid), :name, :desc, CAST(:perms AS jsonb))
@@ -75,14 +94,14 @@ async def seed():
                 """),
                 {"id": rid, "name": name, "desc": desc, "perms": json.dumps(perms)},
             )
-        print("Roles seeded")
+        print(f"  Roles: {len(ROLES)}")
 
         # Users
         for uid, email, full, role_id, active in USERS:
-            await conn.execute(
+            conn.execute(
                 text("""
                     INSERT INTO users (id, email, password_hash, full_name, role_id, is_active)
-                    VALUES (:id, :email, :pwd, :name, :role, :active)
+                    VALUES (CAST(:id AS uuid), :email, :pwd, :name, CAST(:role AS uuid), :active)
                     ON CONFLICT (id) DO UPDATE SET
                         password_hash = EXCLUDED.password_hash,
                         is_active = EXCLUDED.is_active,
@@ -90,16 +109,16 @@ async def seed():
                 """),
                 {"id": uid, "email": email, "pwd": PWD, "name": full, "role": role_id, "active": active},
             )
-        print("Users seeded")
+        print(f"  Users: {len(USERS)}")
 
         # Patients
         for pid, name, age, gender, phone, email, addr, ec_name, ec_phone, status in PATIENTS:
-            await conn.execute(
+            conn.execute(
                 text("""
                     INSERT INTO patients (id, full_name, age, gender, phone, email, address,
                         emergency_contact_name, emergency_contact_phone, status, created_by)
-                    VALUES (:id, :name, :age, :gender, :phone, :email, :addr,
-                        :ec_name, :ec_phone, :status, :created_by)
+                    VALUES (CAST(:id AS uuid), :name, :age, :gender, :phone, :email, :addr,
+                        :ec_name, :ec_phone, :status, CAST(:created_by AS uuid))
                     ON CONFLICT (id) DO NOTHING
                 """),
                 {
@@ -109,14 +128,14 @@ async def seed():
                     "created_by": NAV_ID,
                 },
             )
-        print("Patients seeded")
+        print(f"  Patients: {len(PATIENTS)}")
 
         # Cases
         for cid, pat_id, diag, status, priority, notes in CASES:
-            await conn.execute(
+            conn.execute(
                 text("""
                     INSERT INTO cases (id, patient_id, diagnosis, status, priority, notes, created_by)
-                    VALUES (:id, :pat_id, :diag, :status, :priority, :notes, :created_by)
+                    VALUES (CAST(:id AS uuid), CAST(:pat_id AS uuid), :diag, :status, :priority, :notes, CAST(:created_by AS uuid))
                     ON CONFLICT (id) DO NOTHING
                 """),
                 {
@@ -125,11 +144,14 @@ async def seed():
                     "created_by": NAV_ID,
                 },
             )
-        print("Cases seeded")
+        print(f"  Cases: {len(CASES)}")
+
+    engine.dispose()
 
     print("\nDone! Login credentials:")
     print("  admin@test.com      / TestPass123!")
     print("  navigator@test.com  / TestPass123!")
 
 
-asyncio.run(seed())
+if __name__ == "__main__":
+    seed()
