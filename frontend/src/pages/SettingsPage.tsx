@@ -7,11 +7,11 @@ import type { UserListItem, SettingItem, ServiceHealthResponse, ScrapedHospital,
 type Tab = "profile" | "password" | "users" | "configuration" | "import" | "database";
 
 const TABS: { key: Tab; label: string; adminOnly: boolean }[] = [
-  { key: "profile", label: "My Profile", adminOnly: false },
-  { key: "password", label: "Change Password", adminOnly: false },
-  { key: "users", label: "User Management", adminOnly: true },
-  { key: "configuration", label: "Configuration", adminOnly: true },
-  { key: "import", label: "Data Import", adminOnly: true },
+  { key: "profile", label: "Profile", adminOnly: false },
+  { key: "password", label: "Password", adminOnly: false },
+  { key: "users", label: "Users", adminOnly: true },
+  { key: "configuration", label: "Config", adminOnly: true },
+  { key: "import", label: "Import", adminOnly: true },
   { key: "database", label: "Database", adminOnly: true },
 ];
 
@@ -29,15 +29,15 @@ export default function SettingsPage() {
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Settings</h2>
 
       {/* Tab bar */}
-      <div className="flex gap-1 mb-6 border-b border-gray-200">
+      <div className="flex gap-0.5 mb-6 border-b border-gray-200">
         {visibleTabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors ${
               activeTab === tab.key
                 ? "bg-blue-50 text-blue-700 border-b-2 border-blue-700"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
             }`}
           >
             {tab.label}
