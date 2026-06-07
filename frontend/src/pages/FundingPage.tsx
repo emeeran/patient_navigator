@@ -28,6 +28,7 @@ export default function FundingPage() {
   const [dedupMsg, setDedupMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [deduping, setDeduping] = useState(false);
   const [showDedupConfirm, setShowDedupConfirm] = useState(false);
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
@@ -132,6 +133,16 @@ export default function FundingPage() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Funding Programs</h2>
         <div className="flex items-center gap-3">
+          <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+            <button onClick={() => setViewMode("table")}
+              className={`px-3 py-1.5 text-xs font-medium ${viewMode === "table" ? "bg-pink-50 text-pink-700" : "text-gray-500 hover:bg-gray-50"}`}>
+              Table
+            </button>
+            <button onClick={() => setViewMode("cards")}
+              className={`px-3 py-1.5 text-xs font-medium ${viewMode === "cards" ? "bg-pink-50 text-pink-700" : "text-gray-500 hover:bg-gray-50"}`}>
+              Cards
+            </button>
+          </div>
           <span className="text-sm text-gray-500">{total} programs</span>
           {isAdmin && (
             <button onClick={() => setShowDedupConfirm(true)} disabled={deduping}
@@ -187,7 +198,7 @@ export default function FundingPage() {
             </tbody>
           </table>
         </div>
-      ) : (
+      ) : viewMode === "table" ? (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -243,6 +254,40 @@ export default function FundingPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      ) : null}
+
+      {/* Card view */}
+      {!loading && items.length > 0 && viewMode === "cards" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map((f) => (
+            <div key={f.id}
+              className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md cursor-pointer transition-shadow"
+              onClick={() => navigate(`/funding/${f.id}`)}>
+              <div className="flex items-start justify-between mb-1">
+                <h3 className="font-semibold text-gray-900">{f.name}</h3>
+                {f.program_type && (
+                  <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium capitalize shrink-0">
+                    {f.program_type}
+                  </span>
+                )}
+              </div>
+              {f.provider && <p className="text-sm text-gray-500 mb-2">{f.provider}</p>}
+              <div className="flex items-center justify-between text-sm mt-3">
+                <span className="text-gray-900 font-medium">
+                  {f.max_amount ? `₹${Number(f.max_amount).toLocaleString()}` : "—"}
+                </span>
+                {f.deadline ? (
+                  <span className="text-xs text-gray-500">{new Date(f.deadline).toLocaleDateString()}</span>
+                ) : (
+                  <span className="text-xs text-gray-400">No deadline</span>
+                )}
+              </div>
+              {(f.contact_email || f.contact_phone) && (
+                <p className="text-xs text-gray-400 mt-2 truncate">{f.contact_email || f.contact_phone}</p>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

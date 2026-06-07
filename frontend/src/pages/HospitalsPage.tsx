@@ -35,6 +35,7 @@ export default function HospitalsPage() {
   const [dedupMsg, setDedupMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [deduping, setDeduping] = useState(false);
   const [showDedupConfirm, setShowDedupConfirm] = useState(false);
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
@@ -140,6 +141,17 @@ export default function HospitalsPage() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Hospital Directory</h2>
         <div className="flex items-center gap-3">
+          {/* View toggle */}
+          <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+            <button onClick={() => setViewMode("table")}
+              className={`px-3 py-1.5 text-xs font-medium ${viewMode === "table" ? "bg-purple-50 text-purple-700" : "text-gray-500 hover:bg-gray-50"}`}>
+              Table
+            </button>
+            <button onClick={() => setViewMode("cards")}
+              className={`px-3 py-1.5 text-xs font-medium ${viewMode === "cards" ? "bg-purple-50 text-purple-700" : "text-gray-500 hover:bg-gray-50"}`}>
+              Cards
+            </button>
+          </div>
           <span className="text-sm text-gray-500">{total} hospitals</span>
           {isAdmin && (
             <button onClick={() => setShowDedupConfirm(true)} disabled={deduping}
@@ -196,7 +208,7 @@ export default function HospitalsPage() {
             </tbody>
           </table>
         </div>
-      ) : (
+      ) : viewMode === "table" ? (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -223,12 +235,9 @@ export default function HospitalsPage() {
                     <td className="px-4 py-3">
                       {h.specialties ? (
                         <div className="flex flex-wrap gap-1">
-                          {h.specialties.split(",").slice(0, 2).map((s) => (
+                          {h.specialties.split(",").map((s) => (
                             <span key={s} className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">{s.trim()}</span>
                           ))}
-                          {h.specialties.split(",").length > 2 && (
-                            <span className="text-xs text-gray-400">+{h.specialties.split(",").length - 2}</span>
-                          )}
                         </div>
                       ) : "—"}
                     </td>
@@ -259,6 +268,38 @@ export default function HospitalsPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      ) : null}
+
+      {/* Card view */}
+      {!loading && items.length > 0 && viewMode === "cards" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map((h) => (
+            <div key={h.id}
+              className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md cursor-pointer transition-shadow"
+              onClick={() => navigate(`/hospitals/${h.id}`)}>
+              <div className="flex items-start justify-between mb-2">
+                <h3 className="font-semibold text-gray-900">{h.name}</h3>
+                {h.has_financial_assistance ? (
+                  <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium shrink-0">Govt</span>
+                ) : (
+                  <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full font-medium shrink-0">Pvt</span>
+                )}
+              </div>
+              <p className="text-sm text-gray-500 mb-2">{h.city}{h.state ? `, ${h.state}` : ""}</p>
+              {h.specialties && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {h.specialties.split(",").map((s) => (
+                    <span key={s} className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">{s.trim()}</span>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+                <span>{h.phone || ""}</span>
+                {h.rating != null && <span className="text-amber-600 font-medium">★ {h.rating}</span>}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
