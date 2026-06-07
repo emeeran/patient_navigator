@@ -1,14 +1,14 @@
 """Pydantic schemas for authentication endpoints."""
 
-import re
 from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
+from app.schemas.validators import check_at_least_one, check_password_complexity
+
 # ── Request schemas ───────────────────────────────────
 
-PASSWORD_PATTERN = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&^#])"
 ROLE_PATTERN = r"^(admin|navigator|clinician|volunteer|patient)$"
 
 
@@ -26,11 +26,7 @@ class RegisterRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_password_complexity(self):
-        if not re.search(PASSWORD_PATTERN, self.password):
-            raise ValueError(
-                "Password must contain at least one uppercase letter, "
-                "one lowercase letter, one digit, and one special character"
-            )
+        check_password_complexity(self.password)
         return self
 
 
@@ -55,8 +51,7 @@ class UserUpdateRequest(BaseModel):
 
     @model_validator(mode="after")
     def at_least_one_field(self):
-        if all(v is None for v in [self.role, self.is_active, self.full_name, self.phone]):
-            raise ValueError("At least one field must be provided")
+        check_at_least_one(self, "role", "is_active", "full_name", "phone")
         return self
 
 
@@ -71,11 +66,7 @@ class ChangePasswordRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_password_complexity(self):
-        if not re.search(PASSWORD_PATTERN, self.new_password):
-            raise ValueError(
-                "Password must contain at least one uppercase letter, "
-                "one lowercase letter, one digit, and one special character"
-            )
+        check_password_complexity(self.new_password)
         return self
 
 
@@ -89,11 +80,7 @@ class AdminResetPasswordRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_password_complexity(self):
-        if not re.search(PASSWORD_PATTERN, self.new_password):
-            raise ValueError(
-                "Password must contain at least one uppercase letter, "
-                "one lowercase letter, one digit, and one special character"
-            )
+        check_password_complexity(self.new_password)
         return self
 
 
@@ -103,8 +90,7 @@ class UserProfileUpdateRequest(BaseModel):
 
     @model_validator(mode="after")
     def at_least_one_field(self):
-        if all(v is None for v in [self.full_name, self.phone]):
-            raise ValueError("At least one field must be provided")
+        check_at_least_one(self, "full_name", "phone")
         return self
 
 

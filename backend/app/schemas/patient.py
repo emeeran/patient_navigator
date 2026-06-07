@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
+from app.schemas.validators import check_at_least_one
+
 # ── Enums ──────────────────────────────────────────────
 GENDER_VALUES = ("male", "female", "other", "prefer_not_to_say")
 PATIENT_STATUS_VALUES = ("active", "inactive", "archived")
@@ -46,23 +48,12 @@ class PatientUpdateRequest(BaseModel):
 
     @model_validator(mode="after")
     def at_least_one_field(self):
-        if all(
-            v is None
-            for v in [
-                self.full_name,
-                self.age,
-                self.gender,
-                self.phone,
-                self.email,
-                self.address,
-                self.emergency_contact_name,
-                self.emergency_contact_phone,
-                self.notes,
-                self.navigator_id,
-                self.status,
-            ]
-        ):
-            raise ValueError("At least one field must be provided")
+        check_at_least_one(
+            self,
+            "full_name", "age", "gender", "phone", "email", "address",
+            "emergency_contact_name", "emergency_contact_phone",
+            "notes", "navigator_id", "status",
+        )
         return self
 
 

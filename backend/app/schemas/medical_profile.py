@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.schemas.validators import check_at_least_one
+
 # ── Request schemas ─────────────────────────────────────
 
 
@@ -25,22 +27,12 @@ class MedicalProfileCreateRequest(BaseModel):
 
     @model_validator(mode="after")
     def at_least_one_field(self) -> "MedicalProfileCreateRequest":
-        if all(
-            v is None
-            for v in [
-                self.date_of_birth,
-                self.height_cm,
-                self.weight_kg,
-                self.blood_type,
-                self.past_medical_history,
-                self.family_medical_history,
-                self.chronic_conditions,
-                self.current_medications,
-                self.allergies,
-                self.notes,
-            ]
-        ):
-            raise ValueError("At least one field must be provided")
+        check_at_least_one(
+            self,
+            "date_of_birth", "height_cm", "weight_kg", "blood_type",
+            "past_medical_history", "family_medical_history", "chronic_conditions",
+            "current_medications", "allergies", "notes",
+        )
         return self
 
 
@@ -60,22 +52,12 @@ class MedicalProfileUpdateRequest(BaseModel):
 
     @model_validator(mode="after")
     def at_least_one_field(self) -> "MedicalProfileUpdateRequest":
-        if all(
-            v is None
-            for v in [
-                self.date_of_birth,
-                self.height_cm,
-                self.weight_kg,
-                self.blood_type,
-                self.past_medical_history,
-                self.family_medical_history,
-                self.chronic_conditions,
-                self.current_medications,
-                self.allergies,
-                self.notes,
-            ]
-        ):
-            raise ValueError("At least one field must be provided")
+        check_at_least_one(
+            self,
+            "date_of_birth", "height_cm", "weight_kg", "blood_type",
+            "past_medical_history", "family_medical_history", "chronic_conditions",
+            "current_medications", "allergies", "notes",
+        )
         return self
 
 
