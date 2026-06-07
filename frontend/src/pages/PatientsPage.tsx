@@ -26,10 +26,6 @@ export default function PatientsPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
-  useEffect(() => {
-    loadPatients();
-  }, [search]);
-
   const loadPatients = async () => {
     setLoading(true);
     try {
@@ -45,6 +41,10 @@ export default function PatientsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadPatients();
+  }, [search]);
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();

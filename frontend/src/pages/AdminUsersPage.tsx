@@ -18,8 +18,6 @@ export default function AdminUsersPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => { loadUsers(); }, [search]);
-
   const loadUsers = async () => {
     setLoading(true);
     try {
@@ -29,6 +27,8 @@ export default function AdminUsersPage() {
     } catch { /* interceptor */ }
     setLoading(false);
   };
+
+  useEffect(() => { loadUsers(); }, [search]);
 
   const openEdit = (u: UserItem) => {
     setEditingUser(u);

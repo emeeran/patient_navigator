@@ -56,10 +56,6 @@ export default function CaseDetailPage() {
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewError, setReviewError] = useState("");
 
-  useEffect(() => {
-    if (caseId) loadAll();
-  }, [caseId]);
-
   const loadAll = async () => {
     setLoading(true);
     try {
@@ -82,6 +78,10 @@ export default function CaseDetailPage() {
     } catch { /* interceptor */ }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (caseId) loadAll();
+  }, [caseId]);
 
   // ── Status transition ──
   const handleStatusChange = async (newStatus: string) => {

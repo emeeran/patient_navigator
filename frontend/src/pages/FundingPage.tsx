@@ -32,15 +32,6 @@ export default function FundingPage() {
   const isAdmin = user?.role === "admin";
 
   useEffect(() => { setPage(1); }, [search]);
-  useEffect(() => { load(); }, [search, page]);
-
-  // Auto-dismiss dedup message after 5s
-  useEffect(() => {
-    if (!dedupMsg) return;
-    const t = setTimeout(() => setDedupMsg(null), 5000);
-    return () => clearTimeout(t);
-  }, [dedupMsg]);
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -49,6 +40,15 @@ export default function FundingPage() {
       setTotal(data.total);
     } catch { /* handled */ } finally { setLoading(false); }
   }, [search, page]);
+
+  useEffect(() => { load(); }, [search, page]);
+
+  // Auto-dismiss dedup message after 5s
+  useEffect(() => {
+    if (!dedupMsg) return;
+    const t = setTimeout(() => setDedupMsg(null), 5000);
+    return () => clearTimeout(t);
+  }, [dedupMsg]);
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();

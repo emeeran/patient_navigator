@@ -38,6 +38,15 @@ export default function HospitalsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await hospitalsApi.list({ search: search || undefined, per_page: 20, page });
+      setItems(data.items);
+      setTotal(data.total);
+    } catch { /* handled */ } finally { setLoading(false); }
+  }, [search, page]);
+
   useEffect(() => { setPage(1); }, [search]);
   useEffect(() => { load(); }, [search, page]);
 
@@ -47,15 +56,6 @@ export default function HospitalsPage() {
     const t = setTimeout(() => setDedupMsg(null), 5000);
     return () => clearTimeout(t);
   }, [dedupMsg]);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data } = await hospitalsApi.list({ search: search || undefined, per_page: 20, page });
-      setItems(data.items);
-      setTotal(data.total);
-    } catch { /* handled */ } finally { setLoading(false); }
-  }, [search, page]);
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();

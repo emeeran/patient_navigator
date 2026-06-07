@@ -14,8 +14,6 @@ export default function AuditLogPage() {
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState("");
 
-  useEffect(() => { loadLog(); }, [actionFilter]);
-
   const loadLog = async () => {
     setLoading(true);
     try {
@@ -27,6 +25,8 @@ export default function AuditLogPage() {
     } catch { /* interceptor */ }
     setLoading(false);
   };
+
+  useEffect(() => { loadLog(); }, [actionFilter]);
 
   if (user?.role !== "admin") {
     return <div className="p-8 text-center text-gray-500">Admin access required.</div>;

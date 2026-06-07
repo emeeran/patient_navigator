@@ -15,8 +15,6 @@ export default function HospitalDetailPage() {
     website: "", specialties: "", has_financial_assistance: false, rating: "",
   });
 
-  useEffect(() => { loadHospital(); }, [hospitalId]);
-
   const loadHospital = async () => {
     setLoading(true);
     try {
@@ -32,6 +30,8 @@ export default function HospitalDetailPage() {
     } catch { /* interceptor */ }
     setLoading(false);
   };
+
+  useEffect(() => { loadHospital(); }, [hospitalId]);
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();

@@ -25,8 +25,6 @@ export default function FollowUpsPage() {
   const [cases, setCasesList] = useState<Case[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  useEffect(() => { load(); }, []);
-
   const load = async () => {
     setLoading(true);
     try {
@@ -35,6 +33,8 @@ export default function FollowUpsPage() {
       setTotal(data.total);
     } catch { /* handled */ } finally { setLoading(false); }
   };
+
+  useEffect(() => { load(); }, []);
 
   const openAdd = async () => {
     setForm(emptyForm); setFormError(""); setShowAdd(true);

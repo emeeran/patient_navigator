@@ -234,8 +234,6 @@ function UserManagementSection() {
   const [resetError, setResetError] = useState("");
   const [resetSuccess, setResetSuccess] = useState(false);
 
-  useEffect(() => { loadUsers(); }, [search]);
-
   const loadUsers = async () => {
     setLoading(true);
     try {
@@ -245,6 +243,8 @@ function UserManagementSection() {
     } catch { /* interceptor handles 401 */ }
     setLoading(false);
   };
+
+  useEffect(() => { loadUsers(); }, [search]);
 
   // ── Edit handlers ──
   const openEdit = (u: UserListItem) => {
@@ -513,8 +513,6 @@ function ConfigurationSection() {
   const [savingGroup, setSavingGroup] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  useEffect(() => { loadSettings(); }, []);
-
   const loadSettings = async () => {
     setLoading(true);
     try {
@@ -530,6 +528,8 @@ function ConfigurationSection() {
       setHealth(data);
     } catch { /* ok to fail */ }
   };
+
+  useEffect(() => { loadSettings(); }, []);
 
   const handleSaveGroup = async (groupName: string) => {
     setSavingGroup(groupName);

@@ -223,10 +223,6 @@ export default function PatientDetailPage() {
   const [medForm, setMedForm] = useState<MedFormState>(emptyMedForm);
   const [medError, setMedError] = useState("");
 
-  useEffect(() => {
-    loadPatient();
-  }, [patientId]);
-
   const loadPatient = async () => {
     setLoading(true);
     try {
@@ -261,6 +257,10 @@ export default function PatientDetailPage() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    loadPatient();
+  }, [patientId]);
 
   const handleSave = async (e: { preventDefault: () => void }) => {
     e.preventDefault();

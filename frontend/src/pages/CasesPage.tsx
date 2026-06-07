@@ -21,8 +21,6 @@ export default function CasesPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
-  useEffect(() => { loadCases(); }, []);
-
   const loadCases = async () => {
     setLoading(true);
     try {
@@ -31,6 +29,8 @@ export default function CasesPage() {
       setTotal(data.total);
     } catch { /* handled */ } finally { setLoading(false); }
   };
+
+  useEffect(() => { loadCases(); }, []);
 
   const openAdd = async () => {
     setForm(emptyForm); setFormError(""); setShowAdd(true);

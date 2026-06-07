@@ -16,8 +16,6 @@ export default function FundingDetailPage() {
     deadline: "", contact_email: "", contact_phone: "",
   });
 
-  useEffect(() => { loadProgram(); }, [fundingId]);
-
   const loadProgram = async () => {
     setLoading(true);
     try {
@@ -33,6 +31,8 @@ export default function FundingDetailPage() {
     } catch { /* interceptor */ }
     setLoading(false);
   };
+
+  useEffect(() => { loadProgram(); }, [fundingId]);
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
