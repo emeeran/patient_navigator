@@ -1,6 +1,9 @@
 """FastAPI application entry point."""
 
+import asyncio
 import logging
+import shutil
+import subprocess
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -22,40 +25,157 @@ logger = logging.getLogger(__name__)
 _start_time: datetime | None = None
 
 
-async def _check_ollama() -> bool:
-    """Check if Ollama is reachable and the default model is available."""
+async def _ollama_is_responding(timeout: float = 3.0) -> tuple[bool, list[str]]:
+    """Check if Ollama API is reachable. Returns (ok, model_names)."""
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.get(f"{settings.OLLAMA_BASE_URL}/api/tags")
             if resp.status_code != 200:
-                return False
+                return False, []
             models = [m.get("name", "") for m in resp.json().get("models", [])]
-            if settings.DEFAULT_MODEL in models:
-                logger.info(
-                    "Ollama ready — model %s available (%d models total)",
-                    settings.DEFAULT_MODEL,
-                    len(models),
-                )
+            return True, models
+    except Exception:
+        return False, []
+
+
+async def _start_ollama_service() -> bool:
+    """Attempt to start the Ollama service (systemd or direct).
+
+    Returns True if we managed to launch it (or it was already running).
+    """
+    # Skip auto-start in containers / CI where ollama CLI won't exist
+    if not shutil.which("ollama"):
+        logger.warning("ollama CLI not found — cannot auto-start. Install: https://ollama.com")
+        return False
+
+    # Try systemd first
+    if shutil.which("systemctl"):
+        try:
+            result = subprocess.run(
+                ["systemctl", "is-active", "ollama"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.stdout.strip() == "active":
+                logger.info("Ollama systemd service is active")
                 return True
-            else:
-                logger.warning(
-                    "Ollama running but model %s not found. "
-                    "Available: %s. Run: ollama pull %s",
-                    settings.DEFAULT_MODEL,
-                    ", ".join(models) or "(none)",
-                    settings.DEFAULT_MODEL,
-                )
-                return False
-    except httpx.ConnectError:
+            # Try starting it
+            subprocess.run(
+                ["systemctl", "start", "ollama"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError, PermissionError):
+            pass
+
+    # If systemd didn't work or isn't available, launch directly
+    responding, _ = await _ollama_is_responding()
+    if responding:
+        return True
+
+    logger.info("Starting Ollama via `ollama serve` ...")
+    try:
+        subprocess.Popen(
+            ["ollama", "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception as exc:
+        logger.warning("Failed to start ollama serve: %s", exc)
+        return False
+
+    # Wait up to 30s for Ollama to start responding
+    for attempt in range(30):
+        responding, _ = await _ollama_is_responding()
+        if responding:
+            logger.info("Ollama started after %.0fs", attempt + 1)
+            return True
+        await asyncio.sleep(1)
+
+    logger.warning("Ollama did not respond within 30s")
+    return False
+
+
+async def _pull_model_if_missing(models: list[str]) -> bool:
+    """Pull the configured model if it's not already available."""
+    if settings.DEFAULT_MODEL in models:
+        return True
+
+    if not shutil.which("ollama"):
+        return False
+
+    logger.info("Pulling model %s (first run may take a while) ...", settings.DEFAULT_MODEL)
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "ollama", "pull", settings.DEFAULT_MODEL,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=600)
+        if proc.returncode == 0:
+            logger.info("Model %s pulled successfully", settings.DEFAULT_MODEL)
+            return True
+        else:
+            logger.warning("ollama pull failed (exit %d): %s", proc.returncode, stdout.decode()[:200])
+            return False
+    except TimeoutError:
+        logger.warning("ollama pull timed out after 600s")
+        return False
+    except Exception as exc:
+        logger.warning("Failed to pull model: %s", exc)
+        return False
+
+
+async def _ensure_ollama() -> bool:
+    """Ensure Ollama is running and the required model is available.
+
+    1. Check if Ollama is already responding.
+    2. If not, try to start it (systemd → direct launch).
+    3. Pull the configured model if missing.
+    """
+    # Step 1: Is it already running?
+    responding, models = await _ollama_is_responding()
+    if responding:
+        logger.info("Ollama is running (%d models available)", len(models))
+        # Still might need to pull the model
+        if await _pull_model_if_missing(models):
+            logger.info("Ollama ready — model %s available", settings.DEFAULT_MODEL)
+            return True
+        logger.warning("Ollama running but model %s could not be pulled", settings.DEFAULT_MODEL)
+        return False
+
+    # Step 2: Try to start it (skip in production/containers)
+    if settings.is_production:
         logger.warning(
             "Ollama not reachable at %s — AI features disabled. "
-            "Start it with: ollama serve  or  sudo systemctl start ollama",
+            "In production, ensure Ollama is running separately.",
             settings.OLLAMA_BASE_URL,
         )
         return False
-    except Exception as exc:
-        logger.warning("Ollama health check failed: %s", exc)
+
+    started = await _start_ollama_service()
+    if not started:
+        logger.warning(
+            "Could not start Ollama — AI features disabled. "
+            "Start manually: ollama serve",
+        )
         return False
+
+    # Step 3: Pull the model if needed
+    responding, models = await _ollama_is_responding()
+    if not responding:
+        logger.warning("Ollama started but not responding — AI features disabled")
+        return False
+
+    if await _pull_model_if_missing(models):
+        logger.info("Ollama ready — model %s available", settings.DEFAULT_MODEL)
+        return True
+
+    logger.warning("Ollama running but model %s could not be pulled", settings.DEFAULT_MODEL)
+    return False
 
 
 @asynccontextmanager
@@ -66,7 +186,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _start_time = datetime.now(UTC)
     logger.info("Starting %s v%s (%s)", settings.APP_NAME, settings.APP_VERSION, settings.ENVIRONMENT)
 
-    ollama_ok = await _check_ollama()
+    ollama_ok = await _ensure_ollama()
     app.state.ollama_ready = ollama_ok
     yield
 
