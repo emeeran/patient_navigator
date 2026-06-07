@@ -4,6 +4,7 @@ import type {
   MedicalProfile,
   Case,
   Document,
+  Doctor,
   Hospital,
   FundingProgram,
   FollowUp,
@@ -108,6 +109,18 @@ export const hospitalsApi = {
   update: (id: string, data: Partial<Hospital>) =>
     api.put<Hospital>(`/hospitals/${id}`, data),
   archive: (id: string) => api.delete(`/hospitals/${id}`),
+};
+
+// ── Doctors ─────────────────────────────────────────────
+export const doctorsApi = {
+  list: (params?: Record<string, unknown>) =>
+    api.get<PaginatedResponse<Doctor>>("/doctors", { params }),
+  get: (id: string) => api.get<Doctor>(`/doctors/${id}`),
+  create: (data: Partial<Doctor>) =>
+    api.post<Doctor>("/doctors", data),
+  update: (id: string, data: Partial<Doctor>) =>
+    api.put<Doctor>(`/doctors/${id}`, data),
+  archive: (id: string) => api.delete(`/doctors/${id}`),
 };
 
 // ── Funding ────────────────────────────────────────────

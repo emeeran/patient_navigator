@@ -6,6 +6,7 @@ const navItems = [
   { to: "/patients", label: "Patients" },
   { to: "/cases", label: "Cases" },
   { to: "/hospitals", label: "Hospitals" },
+  { to: "/doctors", label: "Doctors" },
   { to: "/funding", label: "Funding" },
   { to: "/follow-ups", label: "Follow-Ups" },
   { to: "/ai-assistant", label: "AI Assistant" },

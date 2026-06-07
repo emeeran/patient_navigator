@@ -19,6 +19,8 @@ const CasesPage = lazy(() => import("./pages/CasesPage"));
 const CaseDetailPage = lazy(() => import("./pages/CaseDetailPage"));
 const HospitalsPage = lazy(() => import("./pages/HospitalsPage"));
 const HospitalDetailPage = lazy(() => import("./pages/HospitalDetailPage"));
+const DoctorsPage = lazy(() => import("./pages/DoctorsPage"));
+const DoctorDetailPage = lazy(() => import("./pages/DoctorDetailPage"));
 const FundingPage = lazy(() => import("./pages/FundingPage"));
 const FundingDetailPage = lazy(() => import("./pages/FundingDetailPage"));
 const FollowUpsPage = lazy(() => import("./pages/FollowUpsPage"));
@@ -51,6 +53,8 @@ export default function App() {
                   <Route path="/cases/:caseId" element={<CaseDetailPage />} />
                   <Route path="/hospitals" element={<HospitalsPage />} />
                   <Route path="/hospitals/:hospitalId" element={<HospitalDetailPage />} />
+                  <Route path="/doctors" element={<DoctorsPage />} />
+                  <Route path="/doctors/:doctorId" element={<DoctorDetailPage />} />
                   <Route path="/funding" element={<FundingPage />} />
                   <Route path="/funding/:fundingId" element={<FundingDetailPage />} />
                   <Route path="/follow-ups" element={<FollowUpsPage />} />

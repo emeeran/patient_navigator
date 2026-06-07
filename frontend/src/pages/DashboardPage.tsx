@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { patientsApi, casesApi, hospitalsApi, fundingApi, followUpsApi } from "../api";
+import { patientsApi, casesApi, hospitalsApi, doctorsApi, fundingApi, followUpsApi } from "../api";
 
 interface CardData {
   label: string;
@@ -17,10 +17,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadCounts() {
-      const [p, c, h, f, fu] = await Promise.allSettled([
+      const [p, c, h, d, f, fu] = await Promise.allSettled([
         patientsApi.list({ per_page: 1 }),
         casesApi.list({ per_page: 1 }),
         hospitalsApi.list({ per_page: 1 }),
+        doctorsApi.list({ per_page: 1 }),
         fundingApi.list({ per_page: 1 }),
         followUpsApi.upcoming({ per_page: 1 }),
       ]);
@@ -32,6 +33,7 @@ export default function DashboardPage() {
         { label: "Patients", href: "/patients", color: "bg-blue-500", icon: "👤", count: count(p) },
         { label: "Cases", href: "/cases", color: "bg-green-500", icon: "📋", count: count(c) },
         { label: "Hospitals", href: "/hospitals", color: "bg-purple-500", icon: "🏥", count: count(h) },
+        { label: "Doctors", href: "/doctors", color: "bg-teal-500", icon: "🩺", count: count(d) },
         { label: "Funding", href: "/funding", color: "bg-pink-500", icon: "💰", count: count(f) },
         { label: "Follow-Ups", href: "/follow-ups", color: "bg-indigo-500", icon: "📅", count: count(fu) },
         { label: "AI Assistant", href: "/ai-assistant", color: "bg-cyan-500", icon: "🤖", count: 0 },
@@ -51,7 +53,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
         {cards.map((card) => (
           <Link
             key={card.label}

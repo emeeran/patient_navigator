@@ -97,6 +97,30 @@ export interface Hospital {
   has_financial_assistance: boolean;
   rating: number | null;
   is_active: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Doctor {
+  id: string;
+  name: string;
+  city: string;
+  state: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  specialty: string | null;
+  qualification: string | null;
+  registration_number: string | null;
+  medical_council: string | null;
+  hospital_name: string | null;
+  practice_type: string | null;
+  is_active: boolean;
+  latitude: number | null;
+  longitude: number | null;
   created_at: string;
   updated_at: string;
 }
