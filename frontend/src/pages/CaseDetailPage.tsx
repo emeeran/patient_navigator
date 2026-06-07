@@ -47,6 +47,7 @@ export default function CaseDetailPage() {
   // AI states
   const [aiResult, setAiResult] = useState<AIResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiLang, setAiLang] = useState<"english" | "tamil">("english");
 
   // Review modal state
   const [showReview, setShowReview] = useState(false);
@@ -177,12 +178,13 @@ export default function CaseDetailPage() {
   const handleAI = async (type: "summarize" | "specialist" | "questions") => {
     setAiLoading(true);
     setAiResult(null);
+    const lang = aiLang === "tamil" ? "tamil" : undefined;
     try {
       let res;
       switch (type) {
-        case "summarize": res = await aiApi.summarize(caseId!); break;
-        case "specialist": res = await aiApi.suggestSpecialist(caseId!); break;
-        case "questions": res = await aiApi.questionsForDoctor(caseId!); break;
+        case "summarize": res = await aiApi.summarize(caseId!, undefined, lang); break;
+        case "specialist": res = await aiApi.suggestSpecialist(caseId!, undefined, lang); break;
+        case "questions": res = await aiApi.questionsForDoctor(caseId!, undefined, lang); break;
       }
       setAiResult(res!.data);
     } catch { /* ignore */ }
@@ -269,11 +271,36 @@ export default function CaseDetailPage() {
 
       {/* ── AI Quick Actions ── */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6">
-        <h3 className="font-semibold text-gray-900 mb-3">🤖 AI Tools</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-gray-900">🤖 AI Tools</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">Language:</span>
+            <div className="flex bg-white rounded-lg p-0.5 border border-gray-200">
+              <button
+                type="button"
+                onClick={() => setAiLang("english")}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                  aiLang === "english" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                English
+              </button>
+              <button
+                type="button"
+                onClick={() => setAiLang("tamil")}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                  aiLang === "tamil" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                தமிழ்
+              </button>
+            </div>
+          </div>
+        </div>
         <div className="flex flex-wrap gap-3">
           <button onClick={() => handleAI("summarize")} disabled={aiLoading}
             className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50">
-            {aiLoading ? "Generating..." : "📋 Summarize"}
+            {aiLoading ? `Generating${aiLang === "tamil" ? " in தமிழ்..." : "..."}` : "📋 Summarize"}
           </button>
           <button onClick={() => handleAI("specialist")} disabled={aiLoading}
             className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50">
