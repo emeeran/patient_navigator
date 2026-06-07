@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # ── Backend tests ──────────────────────────────────
+  backend-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: patient_nav
+          POSTGRES_USER: navigator
+          POSTGRES_PASSWORD: navigator_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U navigator -d patient_nav"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv pip install --system . ".[dev]"
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://navigator:navigator_test@localhost:5432/patient_nav
+          DATABASE_URL_SYNC: postgresql://navigator:navigator_test@localhost:5432/patient_nav
+        run: alembic upgrade head
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://navigator:navigator_test@localhost:5432/patient_nav
+          DATABASE_URL_SYNC: postgresql://navigator:navigator_test@localhost:5432/patient_nav
+          REDIS_URL: redis://localhost:6379/0
+          ENVIRONMENT: test
+        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing -q
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: backend/coverage.xml
+
+  # ── Backend lint + security ────────────────────────
+  backend-lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv pip install --system . ".[dev]"
+
+      - name: Lint with ruff
+        run: ruff check .
+
+      - name: Dependency audit
+        run: pip-audit --desc
+        continue-on-error: true
+
+  # ── Frontend build + lint ──────────────────────────
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  # ── Docker build verification ──────────────────────
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t patient-nav-backend ./backend
+
+      - name: Build frontend image
+        run: docker build -t patient-nav-frontend ./frontend

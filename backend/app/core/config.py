@@ -1,6 +1,9 @@
 """Application configuration loaded from environment variables."""
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_INSECURE_JWT_DEFAULT = "change-me-in-production-min-32-chars!!"
 
 
 class Settings(BaseSettings):
@@ -26,7 +29,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # ── JWT ──────────────────────────────────────────
-    JWT_SECRET_KEY: str = "change-me-in-production-min-32-chars!!"
+    JWT_SECRET_KEY: str = _INSECURE_JWT_DEFAULT
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -49,8 +52,42 @@ class Settings(BaseSettings):
     OLLAMA_TIMEOUT: int = 60
 
     @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT == "production"
+
+    @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
+
+    @model_validator(mode="after")
+    def _validate_production_settings(self) -> "Settings":
+        """Prevent the app from starting with insecure defaults in production."""
+        if not self.is_production:
+            return self
+
+        errors: list[str] = []
+        if self.JWT_SECRET_KEY == _INSECURE_JWT_DEFAULT:
+            errors.append(
+                "JWT_SECRET_KEY must be changed from its default value. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
+        if self.DEBUG:
+            errors.append("DEBUG must be False in production")
+        if self.BCRYPT_ROUNDS < 10:
+            errors.append("BCRYPT_ROUNDS must be >= 10 in production")
+        if "*" in self.cors_origins_list or any(
+            "localhost" in o for o in self.cors_origins_list
+        ):
+            errors.append(
+                "CORS_ORIGINS must not contain '*' or 'localhost' in production"
+            )
+
+        if errors:
+            raise ValueError(
+                "Production environment validation failed:\n  - "
+                + "\n  - ".join(errors)
+            )
+        return self
 
 
 settings = Settings()

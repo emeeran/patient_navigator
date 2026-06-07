@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { authApi } from "../api/auth";
@@ -10,12 +10,12 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
     setError("");
     try {
       const { data } = await authApi.login(email, password);
-      login(data.access_token, data.user);
+      login(data.access_token, data.user, data.refresh_token);
       navigate("/");
     } catch {
       setError("Invalid email or password");
@@ -34,17 +34,18 @@ export default function LoginPage() {
           </p>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg">
+            <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg" role="alert" aria-live="polite">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" aria-label="Sign in">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
               </label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -55,10 +56,11 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
               </label>
               <input
+                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

@@ -4,7 +4,7 @@ import type { User } from "../types";
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (token: string, user: User) => void;
+  login: (token: string, user: User, refreshToken?: string) => void;
   logout: () => void;
   updateUser: (user: User) => void;
   isAuthenticated: boolean;
@@ -28,17 +28,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [token, user]);
 
-  const login = (newToken: string, newUser: User) => {
+  const login = (newToken: string, newUser: User, refreshToken?: string) => {
     setToken(newToken);
     setUser(newUser);
     localStorage.setItem("access_token", newToken);
     localStorage.setItem("user", JSON.stringify(newUser));
+    if (refreshToken) {
+      localStorage.setItem("refresh_token", refreshToken);
+    }
   };
 
   const logout = () => {
     setToken(null);
     setUser(null);
     localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");
   };
 

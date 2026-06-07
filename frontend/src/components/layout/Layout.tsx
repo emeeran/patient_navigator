@@ -24,13 +24,13 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col" role="navigation" aria-label="Main navigation">
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-lg font-bold text-blue-700">Patient Navigator</h1>
           <p className="text-xs text-gray-500 mt-1">Care Coordination Platform</p>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1" aria-label="Primary">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -77,6 +77,7 @@ export default function Layout() {
             <button
               onClick={logout}
               className="mt-2 text-xs text-red-600 hover:text-red-800"
+              aria-label="Sign out"
             >
               Sign out
             </button>
@@ -85,7 +86,7 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto" role="main">
         <div className="max-w-6xl mx-auto p-8">
           <Outlet />
         </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { casesApi, documentsApi, followUpsApi, aiApi, patientsApi, reviewsApi } from "../api";
 import type { Case, Document as DocType, FollowUp, AIResponse, Patient } from "../types";
@@ -144,7 +144,7 @@ export default function CaseDetailPage() {
   };
 
   // ── Follow-up actions ──
-  const handleAddFollowUp = async (e: FormEvent) => {
+  const handleAddFollowUp = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
     setFuSaving(true);
     setFuError("");
@@ -189,7 +189,7 @@ export default function CaseDetailPage() {
   };
 
   // ── Review actions ──
-  const handleCreateReview = async (e: FormEvent) => {
+  const handleCreateReview = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
     setReviewSaving(true);
     setReviewError("");

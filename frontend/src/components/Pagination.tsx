@@ -23,7 +23,7 @@ export default function Pagination({ page, total, perPage, onChange }: Paginatio
   }
 
   return (
-    <div className="flex items-center justify-between pt-4">
+    <div className="flex items-center justify-between pt-4" role="navigation" aria-label="Pagination">
       <p className="text-sm text-gray-500">
         Showing <span className="font-medium">{from}</span>–<span className="font-medium">{to}</span> of{" "}
         <span className="font-medium">{total}</span>
@@ -33,6 +33,7 @@ export default function Pagination({ page, total, perPage, onChange }: Paginatio
         <button
           onClick={() => onChange(page - 1)}
           disabled={page <= 1}
+          aria-label="Previous page"
           className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           ← Prev
@@ -40,13 +41,15 @@ export default function Pagination({ page, total, perPage, onChange }: Paginatio
 
         {pages.map((p, i) =>
           p === "..." ? (
-            <span key={`dots-${i}`} className="px-2 py-1.5 text-sm text-gray-400">
+            <span key={`dots-${i}`} className="px-2 py-1.5 text-sm text-gray-400" aria-hidden="true">
               …
             </span>
           ) : (
             <button
               key={p}
               onClick={() => onChange(p)}
+              aria-current={p === page ? "page" : undefined}
+              aria-label={`Page ${p}`}
               className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                 p === page
                   ? "bg-blue-600 text-white border-blue-600"
@@ -61,6 +64,7 @@ export default function Pagination({ page, total, perPage, onChange }: Paginatio
         <button
           onClick={() => onChange(page + 1)}
           disabled={page >= totalPages}
+          aria-label="Next page"
           className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Next →

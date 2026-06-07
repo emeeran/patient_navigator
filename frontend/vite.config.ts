@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type UserConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { readFileSync } from "fs";
@@ -39,4 +39,18 @@ export default defineConfig({
       "/health": proxyTarget,
     },
   },
-});
+  build: {
+    sourcemap: true,
+    minify: "terser",
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/")) return "vendor";
+          if (id.includes("node_modules/react-router")) return "vendor";
+          if (id.includes("node_modules/@tanstack")) return "query";
+          if (id.includes("node_modules/axios")) return "api";
+        },
+      },
+    },
+  },
+} satisfies UserConfig);

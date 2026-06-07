@@ -1,0 +1,93 @@
+# Production docker-compose for Patient Navigator
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: patient_nav_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: patient_nav
+      POSTGRES_USER: navigator
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U navigator -d patient_nav"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Do not expose port to host in production — access via backend only
+    # Uncomment for debugging:
+    # ports:
+    #   - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: patient_nav_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: patient_nav_migrate
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql+asyncpg://navigator:${POSTGRES_PASSWORD}@db:5432/patient_nav
+      DATABASE_URL_SYNC: postgresql://navigator:${POSTGRES_PASSWORD}@db:5432/patient_nav
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env.production}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: patient_nav_backend
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_URL: postgresql+asyncpg://navigator:${POSTGRES_PASSWORD}@db:5432/patient_nav
+      DATABASE_URL_SYNC: postgresql://navigator:${POSTGRES_PASSWORD}@db:5432/patient_nav
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: patient_nav_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:

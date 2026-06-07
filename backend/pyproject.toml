@@ -35,6 +35,8 @@ dev = [
     "jsonschema>=4.22",
     "anyio>=4.4",
     "faker>=25.0",
+    "pip-audit>=0.7",
+    "psutil>=6.0",
 ]
 
 [build-system]
