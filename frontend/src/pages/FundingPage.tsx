@@ -160,6 +160,22 @@ export default function FundingPage() {
             </button>
           )}
           {isAdmin && (
+            <button onClick={async () => {
+              try {
+                const { data } = await fundingApi.list({ per_page: 1000 });
+                const headers = ["Name", "Provider", "Type", "Max Amount", "Deadline", "Contact Email", "Contact Phone"];
+                const rows = data.items.map((f) => [f.name, f.provider, f.program_type, String(f.max_amount ?? ""), f.deadline ? new Date(f.deadline).toLocaleDateString() : "", f.contact_email, f.contact_phone]);
+                const csv = [headers.join(","), ...rows.map((r) => r.map((v) => `"${(v ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+                a.download = "funding.csv"; a.click();
+              } catch { /* handled */ }
+            }}
+              className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
+              Export CSV
+            </button>
+          )}
+          {isAdmin && (
             <button onClick={() => { setFormError(""); setShowAdd(true); }}
               className="px-4 py-2 bg-pink-600 text-white text-sm font-medium rounded-lg hover:bg-pink-700 transition-colors">
               + Add Program

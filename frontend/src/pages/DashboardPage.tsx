@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { patientsApi, casesApi, hospitalsApi, doctorsApi, fundingApi, followUpsApi } from "../api";
+import type { Hospital, Doctor, FundingProgram, PaginatedResponse } from "../types";
 
 interface CardData {
   label: string;
@@ -87,6 +88,9 @@ export default function DashboardPage() {
       {cards.length > 0 && cards.find((c) => c.label === "Funding") && (
         <FundingStats />
       )}
+
+      {/* Analytics */}
+      <AnalyticsWidgets />
     </div>
   );
 }
@@ -141,6 +145,67 @@ function FundingStats() {
           <p className="text-2xl font-bold text-red-600">{stats.expired}</p>
           <p className="text-xs text-gray-500">Expired</p>
         </div>
+      </div>
+    </div>
+  );
+}
+function BarChart({ title, data, color }: { title: string; data: [string, number][]; color: string }) {
+  const max = Math.max(...data.map(([, c]) => c), 1);
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <h4 className="text-sm font-semibold text-gray-500 uppercase mb-3">{title}</h4>
+      <div className="space-y-2">
+        {data.slice(0, 5).map(([label, count]) => (
+          <div key={label} className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 w-28 truncate">{label}</span>
+            <div className="flex-1 bg-gray-100 rounded-full h-3">
+              <div className={`${color} rounded-full h-3 transition-all`} style={{ width: `${(count / max) * 100}%` }} />
+            </div>
+            <span className="text-xs text-gray-500 w-6 text-right">{count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsWidgets() {
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [funding, setFunding] = useState<FundingProgram[]>([]);
+
+  useEffect(() => {
+    Promise.allSettled([
+      hospitalsApi.list({ per_page: 100 }),
+      doctorsApi.list({ per_page: 100 }),
+      fundingApi.list({ per_page: 100 }),
+    ]).then(([h, d, f]) => {
+      const getData = <T>(r: PromiseSettledResult<{ data: PaginatedResponse<T> }>) =>
+        r.status === "fulfilled" ? r.value.data.items : [];
+      setHospitals(getData(h));
+      setDoctors(getData(d));
+      setFunding(getData(f));
+    });
+  }, []);
+
+  const groupBy = <T,>(items: T[], key: (i: T) => string): [string, number][] => {
+    const map: Record<string, number> = {};
+    for (const item of items) {
+      const k = key(item) || "Unknown";
+      map[k] = (map[k] || 0) + 1;
+    }
+    return Object.entries(map).sort(([, a], [, b]) => b - a);
+  };
+
+  if (!hospitals.length && !doctors.length && !funding.length) return null;
+
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-semibold text-gray-500 uppercase mb-4">Directory Analytics</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <BarChart title="Hospitals by City" data={groupBy(hospitals, (h) => h.city)} color="bg-purple-500" />
+        <BarChart title="Doctors by Specialty" data={groupBy(doctors, (d) => d.specialty || "General")} color="bg-teal-500" />
+        <BarChart title="Funding by Type" data={groupBy(funding, (f) => f.program_type || "Other")} color="bg-pink-500" />
       </div>
     </div>
   );

@@ -128,6 +128,22 @@ export default function DoctorsPage() {
             </button>
           </div>
           {isAdmin && (
+          <button onClick={async () => {
+            try {
+              const { data } = await doctorsApi.list({ per_page: 1000 });
+              const headers = ["Name", "City", "Specialty", "Qualification", "Practice Type", "Hospital", "Phone", "Email"];
+              const rows = data.items.map((d) => [d.name, d.city, d.specialty, d.qualification, d.practice_type, d.hospital_name, d.phone, d.email]);
+              const csv = [headers.join(","), ...rows.map((r) => r.map((v) => `"${(v ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+              a.download = "doctors.csv"; a.click();
+            } catch { /* handled */ }
+          }}
+            className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
+            Export CSV
+          </button>
+        )}
+          {isAdmin && (
           <button onClick={() => { setForm(emptyForm); setFormError(""); setEditingItem(null); setShowAdd(true); }}
             className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700">
             Add Doctor

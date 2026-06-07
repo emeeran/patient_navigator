@@ -167,6 +167,22 @@ export default function HospitalsPage() {
             </button>
           )}
           {isAdmin && (
+            <button onClick={async () => {
+              try {
+                const { data } = await hospitalsApi.list({ per_page: 1000 });
+                const headers = ["Name", "City", "State", "Phone", "Email", "Specialties", "Financial Assistance", "Rating"];
+                const rows = data.items.map((h) => [h.name, h.city, h.state, h.phone, h.email, h.specialties, String(h.has_financial_assistance), String(h.rating ?? "")]);
+                const csv = [headers.join(","), ...rows.map((r) => r.map((v) => `"${(v ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+                a.download = "hospitals.csv"; a.click();
+              } catch { /* handled */ }
+            }}
+              className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
+              Export CSV
+            </button>
+          )}
+          {isAdmin && (
             <button onClick={() => { setFormError(""); setShowAdd(true); }}
               className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors">
               + Add Hospital
