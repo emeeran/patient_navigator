@@ -160,10 +160,16 @@ async def generate_text(prompt: str, model: str | None = None) -> tuple[str, str
     for provider_name in provider_order:
         provider_fn = _PROVIDERS.get(provider_name)
         if not provider_fn:
+            logger.warning("AI provider '%s' not found in registry", provider_name)
             continue
 
-        logger.debug("Trying AI provider: %s", provider_name)
-        result = await provider_fn(prompt, model)
+        logger.info("Trying AI provider: %s", provider_name)
+        try:
+            result = await provider_fn(prompt, model)
+        except Exception as exc:
+            logger.error("AI provider '%s' raised exception: %s", provider_name, exc)
+            result = None
+        logger.info("AI provider '%s' result: %s", provider_name, repr(result)[:80] if result else "None")
         if result:
             return result, provider_name
 
