@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+/* Tamil-compatible font stack */
+@theme {
+  --font-sans: "Noto Sans", "Noto Sans Tamil", system-ui, -apple-system, sans-serif;
+  --font-serif: "Noto Serif", "Noto Serif Tamil", ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+}

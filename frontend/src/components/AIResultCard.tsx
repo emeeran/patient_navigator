@@ -29,7 +29,7 @@ export default function AIResultCard({ result, title }: AIResultCardProps) {
     pw.document.title = `${title || "AI Result"} — Patient Navigator`;
     const style = pw.document.createElement("style");
     style.textContent = `
-      body { font-family: system-ui, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; }
+      body { font-family: "Noto Sans", "Noto Sans Tamil", system-ui, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; }
       h1 { font-size: 18px; margin-bottom: 4px; }
       .meta { font-size: 12px; color: #888; margin-bottom: 20px; }
       .content { white-space: pre-wrap; line-height: 1.6; font-size: 14px; }
