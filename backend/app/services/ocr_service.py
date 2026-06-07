@@ -130,16 +130,24 @@ def _extract_image(stored_filename: str, language: str | None = None) -> str:
 
 
 def _extract_pdf(stored_filename: str, language: str | None = None) -> str:
-    """Extract text from a PDF."""
+    """Extract text from a PDF by converting pages to images, then OCR."""
+    import shutil
+
     from app.core.file_storage import _ensure_upload_dir, read_file
 
     file_path = (_ensure_upload_dir() / stored_filename).resolve()
 
-    # Tesseract can handle PDFs directly
-    if _tesseract_available():
-        return _tesseract_ocr(str(file_path), language)
+    # Strategy: convert PDF pages to images with pdftoppm, then OCR each page
+    if shutil.which("pdftoppm") and _tesseract_available():
+        return _ocr_pdf_via_images(str(file_path), language)
 
-    # Try PaddleOCR with temp file
+    # Fallback: try tesseract directly (works on some systems with leptonica PDF support)
+    if _tesseract_available():
+        text = _tesseract_ocr(str(file_path), language)
+        if text:
+            return text
+
+    # Fallback: PaddleOCR
     engine = _get_ocr_engine(language)
     if engine is not None:
         file_bytes = read_file(stored_filename)
@@ -153,6 +161,60 @@ def _extract_pdf(stored_filename: str, language: str | None = None) -> str:
             Path(tmp_path).unlink(missing_ok=True)
 
     return ""
+
+
+def _ocr_pdf_via_images(pdf_path: str, language: str | None = None) -> str:
+    """Convert PDF to images with pdftoppm, then OCR each page."""
+    langs = _tesseract_langs(language)
+    pages_text: list[str] = []
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        # Convert PDF pages to PNG images (300 DPI for good OCR quality)
+        prefix = Path(tmp_dir) / "page"
+        try:
+            result = subprocess.run(
+                [
+                    "pdftoppm",
+                    "-png",
+                    "-r",
+                    "300",
+                    pdf_path,
+                    str(prefix),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode != 0:
+                logger.warning("pdftoppm failed (rc=%d): %s", result.returncode, result.stderr[:200])
+                return ""
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+            logger.warning("pdftoppm error: %s", exc)
+            return ""
+
+        # Find generated page images (sorted for correct order)
+        page_images = sorted(Path(tmp_dir).glob("page-*.png"))
+        if not page_images:
+            logger.warning("pdftoppm produced no images for %s", pdf_path)
+            return ""
+
+        # OCR each page
+        for img_path in page_images:
+            try:
+                result = subprocess.run(
+                    ["tesseract", "-l", langs, str(img_path), "stdout"],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                if result.returncode == 0:
+                    page_text = result.stdout.strip()
+                    if page_text:
+                        pages_text.append(page_text)
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                continue
+
+    return "\n\n".join(pages_text)
 
 
 def _tesseract_ocr(file_path: str, language: str | None = None) -> str:
