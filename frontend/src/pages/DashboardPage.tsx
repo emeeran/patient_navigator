@@ -180,7 +180,7 @@ function AnalyticsWidgets() {
       doctorsApi.list({ per_page: 100 }),
       fundingApi.list({ per_page: 100 }),
     ]).then(([h, d, f]) => {
-      const getData = <T>(r: PromiseSettledResult<{ data: PaginatedResponse<T> }>) =>
+      const getData = <T,>(r: PromiseSettledResult<{ data: PaginatedResponse<T> }>) =>
         r.status === "fulfilled" ? r.value.data.items : [];
       setHospitals(getData(h));
       setDoctors(getData(d));
