@@ -17,7 +17,6 @@ import type {
   ServiceHealthResponse,
   ScrapeResponse,
   CityScrapeResponse,
-  ScrapedDoctor,
   ScrapedHospital,
   BulkImportResponse,
   DatabaseResetResponse,
