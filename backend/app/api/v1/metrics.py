@@ -61,7 +61,7 @@ async def metrics() -> dict:
 
         rdb = await _get_redis()
         redis_ok = rdb is not None and await rdb.ping()
-    except Exception:
+    except (ConnectionError, TimeoutError, OSError):
         pass
 
     mem_info = process.memory_info()

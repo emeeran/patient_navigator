@@ -1,5 +1,6 @@
 """Case endpoints — FEAT-003, API-020..026."""
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -172,8 +173,6 @@ async def delete_case(
     current_user: User = Depends(require_role("admin")),
 ):
     """Soft-delete a case (admin only)."""
-    from datetime import UTC, datetime
-
     service = CaseService(db)
     case = await service.get_by_id(case_id)
     case.deleted_at = datetime.now(UTC)

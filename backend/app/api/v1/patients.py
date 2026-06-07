@@ -3,6 +3,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
+from sqlalchemy import text as sql_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_client_ip, get_current_active_user, require_role
@@ -136,8 +137,6 @@ async def hard_delete_patient(
     Admin only. This is irreversible — cascades remove cases, medical profiles,
     and all associated data.
     """
-    from sqlalchemy import text as sql_text
-
     patient = await db.get(Patient, patient_id)
     if not patient:
         raise NotFoundError(f"Patient {patient_id} not found")
