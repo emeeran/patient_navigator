@@ -138,7 +138,7 @@ async def scrape_tn_district(url: str) -> list[dict]:
 
 async def scrape_city(city: str, entity_type: str, state: str | None = None) -> list[dict]:
     """Scrape hospitals, NGOs, or doctors for a given city from public web sources."""
-    from app.services.scraper_import import dedup_records
+    from app.services.scraper_helpers import dedup_records
 
     city_clean = city.strip().title()
     state_clean = (state or "").strip()
