@@ -113,9 +113,11 @@ class AuthService:
         ip_address: str | None = None,
     ) -> dict:
         """Authenticate user and return tokens + profile."""
-        # Look up user (case-insensitive email)
+        # Look up user (case-insensitive email), eager-load role
         result = await self.db.execute(
-            select(User).where(func.lower(User.email) == data.email.lower())
+            select(User)
+            .where(func.lower(User.email) == data.email.lower())
+            .options(selectinload(User.role))
         )
         user = result.scalar_one_or_none()
 
@@ -217,8 +219,10 @@ class AuthService:
         # Revoke old token
         stored_token.revoked = True
 
-        # Create new tokens
-        user_result = await self.db.execute(select(User).where(User.id == user_id))
+        # Create new tokens — eager-load role for JWT payload
+        user_result = await self.db.execute(
+            select(User).where(User.id == user_id).options(selectinload(User.role))
+        )
         user = user_result.scalar_one()
         access_token = create_access_token(user.id, user.role.name, user.role.permissions)
         new_refresh_jwt, new_jti = create_refresh_token(user.id)

@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 600
 
     # ── CORS ─────────────────────────────────────────
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:5174"
 
     # ── File Upload / Document Storage ────────────────────────
     UPLOAD_DIR: str = "./uploads/documents"

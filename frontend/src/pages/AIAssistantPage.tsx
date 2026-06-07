@@ -26,7 +26,7 @@ export default function AIAssistantPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    casesApi.list({ per_page: 100 }).then(({ data }) => setCases(data.items)).catch(() => {});
+    casesApi.list({ per_page: 100 }).then(({ data }) => setCases(data.items ?? [])).catch(() => {});
   }, []);
 
   const handleCaseChange = (caseId: string) => {

@@ -102,7 +102,7 @@ function FundingStats() {
     async function load() {
       try {
         const { data } = await fundingApi.list({ per_page: 100, is_active: true });
-        const programs = data.items;
+        const programs = data.items ?? [];
         const now = Date.now();
         const active = programs.length;
         const avgMax = programs.length
@@ -181,7 +181,7 @@ function AnalyticsWidgets() {
       fundingApi.list({ per_page: 100 }),
     ]).then(([h, d, f]) => {
       const getData = <T,>(r: PromiseSettledResult<{ data: PaginatedResponse<T> }>) =>
-        r.status === "fulfilled" ? r.value.data.items : [];
+        r.status === "fulfilled" ? (r.value.data?.items ?? []) : [];
       setHospitals(getData(h));
       setDoctors(getData(d));
       setFunding(getData(f));

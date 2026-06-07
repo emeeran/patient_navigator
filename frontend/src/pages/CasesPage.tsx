@@ -25,7 +25,7 @@ export default function CasesPage() {
     setLoading(true);
     try {
       const { data } = await casesApi.list({ per_page: 20 });
-      setCases(data.items);
+      setCases(data.items ?? []);
       setTotal(data.total);
     } catch { /* handled */ } finally { setLoading(false); }
   };
@@ -34,14 +34,14 @@ export default function CasesPage() {
 
   const openAdd = async () => {
     setForm(emptyForm); setFormError(""); setShowAdd(true);
-    try { const { data } = await patientsApi.list({ per_page: 100 }); setPatientsList(data.items); } catch { /* */ }
+    try { const { data } = await patientsApi.list({ per_page: 100 }); setPatientsList(data.items ?? []); } catch { /* */ }
   };
 
   const openEdit = async (c: Case) => {
     setEditingItem(c);
     setForm({ patient_id: c.patient_id, diagnosis: c.diagnosis, priority: c.priority, notes: c.notes || "" });
     setFormError("");
-    try { const { data } = await patientsApi.list({ per_page: 100 }); setPatientsList(data.items); } catch { /* */ }
+    try { const { data } = await patientsApi.list({ per_page: 100 }); setPatientsList(data.items ?? []); } catch { /* */ }
   };
 
   const handleSave = async (e: FormEvent) => {

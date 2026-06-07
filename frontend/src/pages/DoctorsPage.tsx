@@ -55,8 +55,8 @@ export default function DoctorsPage() {
         per_page: 20,
         page,
       });
-      setItems(data.items);
-      setTotal(data.total);
+      setItems(data.items ?? []);
+      setTotal(data.total ?? 0);
     } catch { /* handled */ } finally { setLoading(false); }
   }, [search, filterCity, filterSpecialty, filterType, page]);
 

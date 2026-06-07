@@ -67,8 +67,8 @@ export default function CaseDetailPage() {
         reviewsApi.list(caseId!).catch(() => ({ data: { items: [] as Review[] } })),
       ]);
       setCaseData(caseRes.data);
-      setDocuments(docsRes.data.items);
-      setFollowUps(fuRes.data.items);
+      setDocuments(docsRes.data.items ?? []);
+      setFollowUps(fuRes.data.items ?? []);
       setTimeline((tlRes as { data: { items: TimelineEvent[] } }).data.items || []);
       setReviews((revRes as { data: { items: Review[] } }).data.items || []);
 
@@ -110,7 +110,7 @@ export default function CaseDetailPage() {
       const { data } = await documentsApi.triggerOcr(docId, lang);
       if (data.ocr_text) setOcrTexts((prev) => ({ ...prev, [docId]: data.ocr_text! }));
       const docsRes = await documentsApi.list(caseId!, { per_page: 100 });
-      setDocuments(docsRes.data.items);
+      setDocuments(docsRes.data.items ?? []);
     } catch { /* ignore */ }
     setOcrLoading(null);
   };
@@ -142,7 +142,7 @@ export default function CaseDetailPage() {
     try {
       await documentsApi.delete(docId);
       const docsRes = await documentsApi.list(caseId!, { per_page: 100 });
-      setDocuments(docsRes.data.items);
+      setDocuments(docsRes.data.items ?? []);
     } catch { /* ignore */ }
     setDeleteLoading(null);
   };
@@ -161,7 +161,7 @@ export default function CaseDetailPage() {
       setShowFollowUp(false);
       setFuForm({ scheduled_date: "", follow_up_type: "", notes: "" });
       const fuRes = await followUpsApi.list(caseId!, { per_page: 100 });
-      setFollowUps(fuRes.data.items);
+      setFollowUps(fuRes.data.items ?? []);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setFuError(msg || "Failed to schedule");
@@ -172,7 +172,7 @@ export default function CaseDetailPage() {
     try {
       await followUpsApi.complete(fuId);
       const fuRes = await followUpsApi.list(caseId!, { per_page: 100 });
-      setFollowUps(fuRes.data.items);
+      setFollowUps(fuRes.data.items ?? []);
     } catch { /* ignore */ }
   };
 

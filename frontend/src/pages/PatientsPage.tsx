@@ -33,7 +33,7 @@ export default function PatientsPage() {
         search: search || undefined,
         per_page: 20,
       });
-      setPatients(data.items);
+      setPatients(data.items ?? []);
       setTotal(data.total);
     } catch {
       /* handled by interceptor */

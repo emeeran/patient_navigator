@@ -45,8 +45,8 @@ export default function HospitalsPage() {
     setLoading(true);
     try {
       const { data } = await hospitalsApi.list({ search: search || undefined, per_page: 20, page });
-      setItems(data.items);
-      setTotal(data.total);
+      setItems(data.items ?? []);
+      setTotal(data.total ?? 0);
     } catch { /* handled */ } finally { setLoading(false); }
   }, [search, page]);
 

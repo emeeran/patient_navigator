@@ -29,8 +29,8 @@ export default function FollowUpsPage() {
     setLoading(true);
     try {
       const { data } = await followUpsApi.upcoming({ per_page: 20 });
-      setItems(data.items);
-      setTotal(data.total);
+      setItems(data.items ?? []);
+      setTotal(data.total ?? 0);
     } catch { /* handled */ } finally { setLoading(false); }
   };
 
@@ -38,7 +38,7 @@ export default function FollowUpsPage() {
 
   const openAdd = async () => {
     setForm(emptyForm); setFormError(""); setShowAdd(true);
-    try { const { data } = await casesApi.list({ per_page: 100 }); setCasesList(data.items); } catch { /* */ }
+    try { const { data } = await casesApi.list({ per_page: 100 }); setCasesList(data.items ?? []); } catch { /* */ }
   };
 
   const openEdit = async (fu: FollowUp) => {

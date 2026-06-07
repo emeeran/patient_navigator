@@ -231,7 +231,7 @@ export default function PatientDetailPage() {
         casesApi.listForPatient(patientId!, { per_page: 100 }),
       ]);
       setPatient(pRes.data);
-      setCases(cRes.data.items);
+      setCases(cRes.data.items ?? []);
       const p = pRes.data;
       setForm({
         full_name: p.full_name,

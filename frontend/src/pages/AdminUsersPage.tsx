@@ -22,7 +22,7 @@ export default function AdminUsersPage() {
     setLoading(true);
     try {
       const { data } = await api.get("/admin/users", { params: { search: search || undefined, per_page: 100 } });
-      setUsers(data.items);
+      setUsers(data.items ?? []);
       setTotal(data.total);
     } catch { /* interceptor */ }
     setLoading(false);

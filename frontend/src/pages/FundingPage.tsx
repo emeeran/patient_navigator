@@ -45,8 +45,8 @@ export default function FundingPage() {
     setLoading(true);
     try {
       const { data } = await fundingApi.list({ search: search || undefined, per_page: 20, is_active: true, page });
-      setItems(data.items);
-      setTotal(data.total);
+      setItems(data.items ?? []);
+      setTotal(data.total ?? 0);
     } catch { /* handled */ } finally { setLoading(false); }
   }, [search, page]);
 
