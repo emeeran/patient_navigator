@@ -51,6 +51,15 @@ class Settings(BaseSettings):
     DEFAULT_MODEL: str = "medgemma:4b"
     OLLAMA_TIMEOUT: int = 60
 
+    # Cloud AI fallback providers (keys set = provider enabled)
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GOOGLE_AI_API_KEY: str = ""
+    GOOGLE_AI_MODEL: str = "gemini-2.0-flash"
+
+    # Provider order for fallback chain
+    AI_PROVIDER_ORDER: str = "ollama,groq,google"
+
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT == "production"

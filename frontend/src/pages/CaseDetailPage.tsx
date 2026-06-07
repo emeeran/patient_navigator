@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { casesApi, documentsApi, followUpsApi, aiApi, patientsApi, reviewsApi } from "../api";
 import type { Case, Document as DocType, FollowUp, AIResponse, Patient } from "../types";
+import AIResultCard from "../components/AIResultCard";
 import Modal from "../components/Modal";
 import DocumentUploadModal from "../components/DocumentUploadModal";
 
@@ -290,11 +291,8 @@ export default function CaseDetailPage() {
           )}
         </div>
         {aiResult && (
-          <div className="mt-4 bg-white rounded-lg border border-gray-200 p-4">
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{aiResult.content}</p>
-            <div className="mt-3 pt-3 border-t border-amber-200 bg-amber-50 -mx-4 -mb-4 px-4 py-2 rounded-b-lg">
-              <p className="text-xs text-amber-800">⚠️ <strong>Disclaimer:</strong> {aiResult.disclaimer}</p>
-            </div>
+          <div className="mt-4">
+            <AIResultCard result={aiResult} title="AI Analysis" />
           </div>
         )}
       </div>

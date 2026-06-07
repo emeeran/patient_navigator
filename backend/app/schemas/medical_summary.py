@@ -13,12 +13,14 @@ class SummarizeRequest(BaseModel):
 
     case_id: UUID
     document_ids: list[UUID] | None = None
+    language: str | None = None  # "tamil" to generate in Tamil
 
 
 class ExplainRequest(BaseModel):
     """Request body for medical term explanation."""
 
     text: str
+    language: str | None = None
 
 
 class SuggestSpecialistRequest(BaseModel):
@@ -26,6 +28,7 @@ class SuggestSpecialistRequest(BaseModel):
 
     case_id: UUID
     diagnosis: str | None = None
+    language: str | None = None
 
 
 class QuestionsForDoctorRequest(BaseModel):
@@ -33,6 +36,7 @@ class QuestionsForDoctorRequest(BaseModel):
 
     case_id: UUID
     context: str | None = None
+    language: str | None = None
 
 
 # ── AI Response schemas ─────────────────────────────────

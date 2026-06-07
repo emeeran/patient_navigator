@@ -1,4 +1,4 @@
-"""AI service — Ollama integration for medical text generation."""
+"""AI service — multi-provider medical text generation."""
 
 import logging
 from datetime import date
@@ -11,6 +11,7 @@ from app.core.exceptions import NotFoundError
 from app.models.case import Case
 from app.models.document import Document
 from app.models.medical_profile import MedicalProfile
+from app.services.ai_providers import generate_text
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,20 @@ MEDICAL_DISCLAIMER = (
     "It must be reviewed and approved by a qualified clinician before "
     "being used for any medical decisions."
 )
+
+LANGUAGE_INSTRUCTIONS: dict[str, str] = {
+    "tamil": (
+        " You MUST write your entire response in Tamil (தமிழ்). "
+        "Use clear, simple Tamil that a layperson can understand."
+    ),
+}
+
+
+def _language_suffix(language: str | None) -> str:
+    """Return a prompt suffix for the requested output language."""
+    if not language:
+        return ""
+    return LANGUAGE_INSTRUCTIONS.get(language.lower(), "")
 
 
 class AIService:
@@ -72,7 +87,7 @@ class AIService:
         return "\n".join(parts) if parts else None
 
     async def summarize_case(
-        self, case_id, document_ids=None, model=None
+        self, case_id, document_ids=None, model=None, language=None
     ) -> dict:
         """Generate a medical summary for a case."""
         case = await self.db.get(Case, case_id)
@@ -111,31 +126,35 @@ class AIService:
             "based on the following case information. Include key findings, "
             "treatment considerations, and recommended next steps.\n\n"
             f"{context}"
+            f"{_language_suffix(language)}"
         )
 
-        content = await _call_ollama(prompt, model)
+        content, provider = await generate_text(prompt, model)
         return {
             "content": content,
             "disclaimer": MEDICAL_DISCLAIMER,
             "model": model or settings.DEFAULT_MODEL,
+            "provider": provider,
         }
 
-    async def explain_terms(self, text: str, model: str | None = None) -> dict:
+    async def explain_terms(self, text: str, model: str | None = None, language: str | None = None) -> dict:
         """Explain medical terms in plain language."""
         prompt = (
             "You are a medical educator. Explain the following medical text "
             "in simple, patient-friendly language:\n\n"
             f"{text}"
+            f"{_language_suffix(language)}"
         )
-        content = await _call_ollama(prompt, model)
+        content, provider = await generate_text(prompt, model)
         return {
             "content": content,
             "disclaimer": MEDICAL_DISCLAIMER,
             "model": model or settings.DEFAULT_MODEL,
+            "provider": provider,
         }
 
     async def suggest_specialist(
-        self, case_id, diagnosis=None, model=None
+        self, case_id, diagnosis=None, model=None, language=None
     ) -> dict:
         """Suggest a specialist type based on case info."""
         case = await self.db.get(Case, case_id)
@@ -155,16 +174,18 @@ class AIService:
             "diagnosis and patient context, suggest the most appropriate "
             "specialist type and why:\n\n"
             f"{context_block}"
+            f"{_language_suffix(language)}"
         )
-        content = await _call_ollama(prompt, model)
+        content, provider = await generate_text(prompt, model)
         return {
             "content": content,
             "disclaimer": MEDICAL_DISCLAIMER,
             "model": model or settings.DEFAULT_MODEL,
+            "provider": provider,
         }
 
     async def generate_questions(
-        self, case_id, context=None, model=None
+        self, case_id, context=None, model=None, language=None
     ) -> dict:
         """Generate questions the patient should ask their doctor."""
         case = await self.db.get(Case, case_id)
@@ -188,52 +209,12 @@ class AIService:
         if case.notes:
             prompt += f"Notes: {case.notes}\n"
 
-        content = await _call_ollama(prompt, model)
+        prompt += _language_suffix(language)
+
+        content, provider = await generate_text(prompt, model)
         return {
             "content": content,
             "disclaimer": MEDICAL_DISCLAIMER,
             "model": model or settings.DEFAULT_MODEL,
+            "provider": provider,
         }
-
-
-async def _call_ollama(prompt: str, model: str | None = None) -> str:
-    """Call the Ollama API to generate text.
-
-    Falls back to a placeholder if Ollama is not available.
-    """
-    import httpx
-
-    model = model or settings.DEFAULT_MODEL
-    try:
-        async with httpx.AsyncClient(timeout=float(settings.OLLAMA_TIMEOUT)) as client:
-            response = await client.post(
-                f"{settings.OLLAMA_BASE_URL}/api/generate",
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "stream": False,
-                },
-            )
-            if response.status_code == 200:
-                return response.json().get("response", "").strip()
-
-            # Surface the actual Ollama error (e.g. OOM, model not found)
-            try:
-                detail = response.json().get("error", "")
-            except Exception:
-                detail = response.text[:200]
-            logger.warning("Ollama returned %d: %s", response.status_code, detail)
-            return (
-                f"[AI unavailable — Ollama error: {detail}] "
-                "Check that Ollama has enough memory to load the model."
-            )
-    except httpx.ConnectError:
-        logger.warning("Ollama not reachable at %s", settings.OLLAMA_BASE_URL)
-    except Exception as e:
-        logger.error("Ollama call failed: %s", e)
-
-    # Fallback: return a helpful placeholder
-    return (
-        "[AI unavailable — Ollama service not reachable] "
-        "Please ensure Ollama is running locally with a supported model."
-    )

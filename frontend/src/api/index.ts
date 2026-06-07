@@ -143,22 +143,25 @@ export const followUpsApi = {
 
 // ── AI ─────────────────────────────────────────────────
 export const aiApi = {
-  summarize: (caseId: string, documentIds?: string[]) =>
+  summarize: (caseId: string, documentIds?: string[], language?: string) =>
     api.post<AIResponse>("/ai/summarize", {
       case_id: caseId,
       document_ids: documentIds,
+      language,
     }),
-  explain: (text: string) =>
-    api.post<AIResponse>("/ai/explain", { text }),
-  suggestSpecialist: (caseId: string, diagnosis?: string) =>
+  explain: (text: string, language?: string) =>
+    api.post<AIResponse>("/ai/explain", { text, language }),
+  suggestSpecialist: (caseId: string, diagnosis?: string, language?: string) =>
     api.post<AIResponse>("/ai/suggest-specialist", {
       case_id: caseId,
       diagnosis,
+      language,
     }),
-  questionsForDoctor: (caseId: string, context?: string) =>
+  questionsForDoctor: (caseId: string, context?: string, language?: string) =>
     api.post<AIResponse>("/ai/questions-for-doctor", {
       case_id: caseId,
       context,
+      language,
     }),
 };
 

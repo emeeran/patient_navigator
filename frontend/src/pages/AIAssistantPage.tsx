@@ -1,8 +1,10 @@
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect } from "react";
 import { aiApi, casesApi } from "../api";
 import type { Case, AIResponse } from "../types";
+import AIResultCard from "../components/AIResultCard";
 
 type Tab = "summarize" | "explain" | "specialist" | "questions";
+type Language = "english" | "tamil";
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: "summarize", label: "Summarize Case", icon: "📋" },
@@ -13,8 +15,10 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
 
 export default function AIAssistantPage() {
   const [activeTab, setActiveTab] = useState<Tab>("explain");
+  const [language, setLanguage] = useState<Language>("english");
   const [cases, setCases] = useState<Case[]>([]);
   const [selectedCase, setSelectedCase] = useState("");
+  const [selectedCaseData, setSelectedCaseData] = useState<Case | null>(null);
   const [explainText, setExplainText] = useState("");
   const [context, setContext] = useState("");
   const [result, setResult] = useState<AIResponse | null>(null);
@@ -25,7 +29,14 @@ export default function AIAssistantPage() {
     casesApi.list({ per_page: 100 }).then(({ data }) => setCases(data.items)).catch(() => {});
   }, []);
 
-  const handleGenerate = async (e: FormEvent) => {
+  const handleCaseChange = (caseId: string) => {
+    setSelectedCase(caseId);
+    setSelectedCaseData(cases.find((c) => c.id === caseId) || null);
+  };
+
+  const langParam = language === "tamil" ? "tamil" : undefined;
+
+  const handleGenerate = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
     setLoading(true);
     setResult(null);
@@ -35,26 +46,30 @@ export default function AIAssistantPage() {
       let res: { data: AIResponse };
       switch (activeTab) {
         case "summarize":
-          res = await aiApi.summarize(selectedCase);
+          res = await aiApi.summarize(selectedCase, undefined, langParam);
           break;
         case "explain":
-          res = await aiApi.explain(explainText);
+          res = await aiApi.explain(explainText, langParam);
           break;
         case "specialist":
-          res = await aiApi.suggestSpecialist(selectedCase);
+          res = await aiApi.suggestSpecialist(selectedCase, undefined, langParam);
           break;
         case "questions":
-          res = await aiApi.questionsForDoctor(selectedCase, context || undefined);
+          res = await aiApi.questionsForDoctor(selectedCase, context || undefined, langParam);
           break;
       }
       setResult(res!.data);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setError(msg || "AI request failed. Make sure Ollama is running.");
+      setError(msg || "AI request failed. Try again or check Settings for cloud provider keys.");
     } finally {
       setLoading(false);
     }
   };
+
+  const resultTitle = TABS.find((t) => t.key === activeTab)?.label
+    ? `${TABS.find((t) => t.key === activeTab)?.icon} ${TABS.find((t) => t.key === activeTab)?.label} — Result${language === "tamil" ? " (தமிழ்)" : ""}`
+    : undefined;
 
   return (
     <div>
@@ -66,10 +81,12 @@ export default function AIAssistantPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1">
+      <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1" role="tablist" aria-label="AI tools">
         {TABS.map((tab) => (
           <button
             key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
             onClick={() => { setActiveTab(tab.key); setResult(null); setError(""); }}
             className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-colors ${
               activeTab === tab.key
@@ -84,30 +101,86 @@ export default function AIAssistantPage() {
 
       {/* Input Form */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <form onSubmit={handleGenerate} className="space-y-4">
-          {(activeTab === "summarize" || activeTab === "specialist" || activeTab === "questions") && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Select Case *</label>
-              <select
-                required
-                value={selectedCase}
-                onChange={(e) => setSelectedCase(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+        <form onSubmit={handleGenerate} className="space-y-4" aria-label="AI request form">
+
+          {/* Language Toggle */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">Output language:</span>
+            <div className="flex bg-gray-100 rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setLanguage("english")}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  language === "english" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+                }`}
               >
-                <option value="">Choose a case...</option>
-                {cases.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.diagnosis} ({c.status.replace("_", " ")})
-                  </option>
-                ))}
-              </select>
+                English
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage("tamil")}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  language === "tamil" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+                }`}
+              >
+                தமிழ்
+              </button>
             </div>
+          </div>
+
+          {(activeTab === "summarize" || activeTab === "specialist" || activeTab === "questions") && (
+            <>
+              <div>
+                <label htmlFor="case-select" className="block text-sm font-medium text-gray-700 mb-1">Select Case *</label>
+                <select
+                  id="case-select"
+                  required
+                  value={selectedCase}
+                  onChange={(e) => handleCaseChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Choose a case...</option>
+                  {cases.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.diagnosis} ({c.status.replace("_", " ")})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedCaseData && (
+                <div className="bg-blue-50 rounded-lg p-4 space-y-1">
+                  <h4 className="text-xs font-semibold text-blue-700 uppercase">Case Info (from profile)</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-gray-500">Diagnosis:</span>{" "}
+                      <span className="font-medium text-gray-900">{selectedCaseData.diagnosis}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Priority:</span>{" "}
+                      <span className="font-medium text-gray-900 capitalize">{selectedCaseData.priority}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Status:</span>{" "}
+                      <span className="font-medium text-gray-900 capitalize">{selectedCaseData.status.replace("_", " ")}</span>
+                    </div>
+                    {selectedCaseData.notes && (
+                      <div className="col-span-2">
+                        <span className="text-gray-500">Notes:</span>{" "}
+                        <span className="text-gray-700">{selectedCaseData.notes}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {activeTab === "explain" && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Medical Text to Explain *</label>
+              <label htmlFor="explain-text" className="block text-sm font-medium text-gray-700 mb-1">Medical Text to Explain *</label>
               <textarea
+                id="explain-text"
                 required
                 rows={5}
                 value={explainText}
@@ -120,8 +193,9 @@ export default function AIAssistantPage() {
 
           {activeTab === "questions" && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Additional Context</label>
+              <label htmlFor="context-text" className="block text-sm font-medium text-gray-700 mb-1">Additional Context</label>
               <textarea
+                id="context-text"
                 rows={3}
                 value={context}
                 onChange={(e) => setContext(e.target.value)}
@@ -138,10 +212,10 @@ export default function AIAssistantPage() {
           >
             {loading ? (
               <span className="flex items-center gap-2">
-                <span className="animate-spin">⏳</span> Generating...
+                <span className="animate-spin">⏳</span> Generating{language === "tamil" ? " in தமிழ்..." : "..."}
               </span>
             ) : (
-              "Generate"
+              `Generate${language === "tamil" ? " in தமிழ்" : ""}`
             )}
           </button>
         </form>
@@ -149,31 +223,15 @@ export default function AIAssistantPage() {
 
       {/* Error */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl" role="alert">
           <p className="text-sm text-red-700">{error}</p>
         </div>
       )}
 
       {/* Result */}
       {result && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="p-6">
-            <h3 className="font-semibold text-gray-900 mb-3">
-              {TABS.find((t) => t.key === activeTab)?.icon}{" "}
-              {TABS.find((t) => t.key === activeTab)?.label} — Result
-            </h3>
-            <div className="prose prose-sm max-w-none">
-              <p className="text-gray-700 whitespace-pre-wrap">{result.content}</p>
-            </div>
-            {result.model && (
-              <p className="text-xs text-gray-400 mt-4">Model: {result.model}</p>
-            )}
-          </div>
-          <div className="px-6 py-3 bg-amber-50 border-t border-amber-200">
-            <p className="text-xs text-amber-800">
-              ⚠️ <strong>Medical Disclaimer:</strong> {result.disclaimer}
-            </p>
-          </div>
+        <div className="mb-6">
+          <AIResultCard result={result} title={resultTitle} />
         </div>
       )}
     </div>

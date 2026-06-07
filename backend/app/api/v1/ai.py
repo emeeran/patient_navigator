@@ -41,7 +41,7 @@ async def summarize(
     """API-040: Generate AI medical summary for a case."""
     service = AIService(db)
     return await service.summarize_case(
-        case_id=data.case_id, document_ids=data.document_ids
+        case_id=data.case_id, document_ids=data.document_ids, language=data.language
     )
 
 
@@ -53,7 +53,7 @@ async def explain(
 ):
     """API-041: Explain medical terms in plain language."""
     service = AIService(db)
-    return await service.explain_terms(text=data.text)
+    return await service.explain_terms(text=data.text, language=data.language)
 
 
 @router.post("/ai/suggest-specialist")
@@ -65,7 +65,7 @@ async def suggest_specialist(
     """API-042: Suggest specialist type based on case."""
     service = AIService(db)
     return await service.suggest_specialist(
-        case_id=data.case_id, diagnosis=data.diagnosis
+        case_id=data.case_id, diagnosis=data.diagnosis, language=data.language
     )
 
 
@@ -78,7 +78,7 @@ async def questions_for_doctor(
     """API-043: Generate questions for the doctor."""
     service = AIService(db)
     return await service.generate_questions(
-        case_id=data.case_id, context=data.context
+        case_id=data.case_id, context=data.context, language=data.language
     )
 
 

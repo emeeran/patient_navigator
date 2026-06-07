@@ -102,6 +102,7 @@ async def _start_ollama_service() -> bool:
 async def _pull_model_if_missing(models: list[str]) -> bool:
     """Pull the configured model if it's not already available."""
     if settings.DEFAULT_MODEL in models:
+        logger.info("Model %s already available — skipping pull", settings.DEFAULT_MODEL)
         return True
 
     if not shutil.which("ollama"):
@@ -229,10 +230,12 @@ app.add_middleware(
 async def _check_db() -> bool:
     """Test database connectivity."""
     try:
+        from sqlalchemy import text
+
         from app.core.database import engine
 
         async with engine.connect() as conn:
-            await conn.execute(type(conn).sync_connection.text("SELECT 1"))
+            await conn.execute(text("SELECT 1"))
         return True
     except Exception:
         return False

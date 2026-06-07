@@ -143,6 +143,7 @@ export interface AIResponse {
   content: string;
   disclaimer: string;
   model: string | null;
+  provider?: string;
 }
 
 export interface OCRResult {
