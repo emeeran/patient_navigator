@@ -115,12 +115,13 @@ async def preview_document(
 @router.post("/documents/{document_id}/ocr")
 async def trigger_ocr(
     document_id: uuid.UUID,
+    language: str | None = Query(None, description="OCR language: 'tamil', 'english', or omit for both"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin", "navigator")),
 ):
     """API-035: Trigger OCR processing for a document."""
     service = DocumentService(db)
-    doc = await service.trigger_ocr(document_id)
+    doc = await service.trigger_ocr(document_id, language=language)
     return OCRResultResponse(
         id=doc.id,
         ocr_status=doc.ocr_status,

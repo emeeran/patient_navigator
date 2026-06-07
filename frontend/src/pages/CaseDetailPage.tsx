@@ -37,6 +37,7 @@ export default function CaseDetailPage() {
   const [ocrLoading, setOcrLoading] = useState<string | null>(null);
   const [ocrTexts, setOcrTexts] = useState<Record<string, string>>({});
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  const [ocrLang, setOcrLang] = useState<"english" | "tamil">("english");
 
   // Follow-up states
   const [showFollowUp, setShowFollowUp] = useState(false);
@@ -105,7 +106,8 @@ export default function CaseDetailPage() {
   const handleOcr = async (docId: string) => {
     setOcrLoading(docId);
     try {
-      const { data } = await documentsApi.triggerOcr(docId);
+      const lang = ocrLang === "tamil" ? "tamil" : undefined;
+      const { data } = await documentsApi.triggerOcr(docId, lang);
       if (data.ocr_text) setOcrTexts((prev) => ({ ...prev, [docId]: data.ocr_text! }));
       const docsRes = await documentsApi.list(caseId!, { per_page: 100 });
       setDocuments(docsRes.data.items);
@@ -344,7 +346,30 @@ export default function CaseDetailPage() {
       {/* ── Documents Section ── */}
       {activeSection === "documents" && (
         <div>
-          <div className="flex justify-end mb-3">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">OCR Language:</span>
+              <div className="flex bg-gray-100 rounded-lg p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setOcrLang("english")}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                    ocrLang === "english" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  English
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOcrLang("tamil")}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                    ocrLang === "tamil" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  தமிழ்
+                </button>
+              </div>
+            </div>
             <button onClick={() => setShowUpload(true)}
               className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
               + Upload Document

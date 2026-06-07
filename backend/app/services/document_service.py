@@ -107,7 +107,7 @@ class DocumentService:
         doc.deleted_at = datetime.now(UTC)
         await self.db.flush()
 
-    async def trigger_ocr(self, document_id: uuid.UUID) -> Document:
+    async def trigger_ocr(self, document_id: uuid.UUID, language: str | None = None) -> Document:
         """Trigger OCR processing for a document."""
         doc = await self.get_by_id(document_id)
         if doc.ocr_status == "processing":
@@ -119,7 +119,7 @@ class DocumentService:
         try:
             from app.services.ocr_service import extract_text_from_file
 
-            text = extract_text_from_file(doc.stored_filename, doc.mime_type)
+            text = extract_text_from_file(doc.stored_filename, doc.mime_type, language=language)
             if text:
                 doc.ocr_text = text
                 doc.ocr_status = "completed"

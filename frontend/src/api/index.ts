@@ -93,7 +93,8 @@ export const documentsApi = {
   },
   download: (id: string) =>
     api.get(`/documents/${id}/download`, { responseType: "blob" }),
-  triggerOcr: (id: string) => api.post<OCRResult>(`/documents/${id}/ocr`),
+  triggerOcr: (id: string, language?: string) =>
+    api.post<OCRResult>(`/documents/${id}/ocr`, null, { params: language ? { language } : {} }),
   preview: (id: string) => api.get<DocumentPreview>(`/documents/${id}/preview`),
   delete: (id: string) => api.delete(`/documents/${id}`),
 };

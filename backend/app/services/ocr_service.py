@@ -1,4 +1,9 @@
-"""OCR service — uses Tesseract (primary) or PaddleOCR for text extraction."""
+"""OCR service — uses Tesseract (primary) or PaddleOCR for text extraction.
+
+Supports English and Tamil OCR. Tamil is used when:
+- The `language` parameter is set to "tamil" or "tam"
+- Both English + Tamil are used by default for best coverage
+"""
 
 import logging
 import subprocess
@@ -9,25 +14,61 @@ from app.core.file_storage import file_exists
 
 logger = logging.getLogger(__name__)
 
-_ocr_engine = None
+_ocr_engine: object | None = None
+_ocr_engine_lang: str | None = None
+
+# Languages we support
+SUPPORTED_LANGS = {"english", "eng", "tamil", "tam"}
 
 
-def _get_ocr_engine():
+def _tesseract_langs(language: str | None = None) -> str:
+    """Return the tesseract `-l` argument for the given language.
+
+    Default: eng+tam (both English and Tamil for maximum coverage).
+    """
+    if language and language.lower() in ("tamil", "tam"):
+        return "tam+eng"
+    if language and language.lower() in ("english", "eng"):
+        return "eng"
+    # Default: both languages for best results on mixed-language docs
+    return "eng+tam" if _tesseract_has_lang("tam") else "eng"
+
+
+def _tesseract_has_lang(lang: str) -> bool:
+    """Check if Tesseract has a specific language pack installed."""
+    try:
+        result = subprocess.run(
+            ["tesseract", "--list-langs"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return lang in result.stdout.split()
+    except Exception:
+        return False
+
+
+def _get_ocr_engine(language: str | None = None):
     """Lazy-load PaddleOCR engine (expensive to initialize).
 
     Returns None if PaddleOCR is not installed or fails to initialize.
+    Reinitializes if the language changes.
     """
-    global _ocr_engine
-    if _ocr_engine is None:
-        try:
-            from paddleocr import PaddleOCR
+    global _ocr_engine, _ocr_engine_lang
 
-            _ocr_engine = PaddleOCR(lang="en")
-            logger.info("PaddleOCR engine initialized")
-        except ImportError:
-            logger.info("PaddleOCR not installed — using Tesseract fallback")
-        except Exception as exc:
-            logger.warning("PaddleOCR init failed: %s — using Tesseract fallback", exc)
+    paddle_lang = "ta" if language and language.lower() in ("tamil", "tam") else "en"
+
+    if _ocr_engine is not None and _ocr_engine_lang == paddle_lang:
+        return _ocr_engine
+
+    try:
+        from paddleocr import PaddleOCR
+
+        _ocr_engine = PaddleOCR(lang=paddle_lang)
+        _ocr_engine_lang = paddle_lang
+        logger.info("PaddleOCR engine initialized (lang=%s)", paddle_lang)
+    except ImportError:
+        logger.info("PaddleOCR not installed — using Tesseract fallback")
+    except Exception as exc:
+        logger.warning("PaddleOCR init failed: %s — using Tesseract fallback", exc)
     return _ocr_engine
 
 
@@ -40,8 +81,17 @@ def _tesseract_available() -> bool:
         return False
 
 
-def extract_text_from_file(stored_filename: str, mime_type: str) -> str:
+def extract_text_from_file(
+    stored_filename: str,
+    mime_type: str,
+    language: str | None = None,
+) -> str:
     """Extract text from a stored document file.
+
+    Args:
+        stored_filename: Path to the stored file.
+        mime_type: MIME type of the file.
+        language: OCR language — "english"/"eng", "tamil"/"tam", or None (auto-detect both).
 
     Returns extracted text string, or empty string if OCR is unavailable.
     Raises RuntimeError on processing failure.
@@ -50,9 +100,9 @@ def extract_text_from_file(stored_filename: str, mime_type: str) -> str:
         raise FileNotFoundError(f"File not found: {stored_filename}")
 
     if mime_type == "application/pdf":
-        return _extract_pdf(stored_filename)
+        return _extract_pdf(stored_filename, language)
     elif mime_type.startswith("image/"):
-        return _extract_image(stored_filename)
+        return _extract_image(stored_filename, language)
     elif "wordprocessingml" in mime_type:
         from app.core.file_storage import read_file
         return _extract_from_docx(read_file(stored_filename))
@@ -60,7 +110,7 @@ def extract_text_from_file(stored_filename: str, mime_type: str) -> str:
         return ""
 
 
-def _extract_image(stored_filename: str) -> str:
+def _extract_image(stored_filename: str, language: str | None = None) -> str:
     """Extract text from an image using Tesseract (fast) or PaddleOCR."""
     from app.core.file_storage import _ensure_upload_dir
 
@@ -68,10 +118,10 @@ def _extract_image(stored_filename: str) -> str:
 
     # Try Tesseract first (fast, reliable)
     if _tesseract_available():
-        return _tesseract_ocr(str(file_path))
+        return _tesseract_ocr(str(file_path), language)
 
     # Fall back to PaddleOCR
-    engine = _get_ocr_engine()
+    engine = _get_ocr_engine(language)
     if engine is not None:
         result = engine.ocr(str(file_path))
         return _join_paddle_result(result)
@@ -79,22 +129,18 @@ def _extract_image(stored_filename: str) -> str:
     return ""
 
 
-def _extract_pdf(stored_filename: str) -> str:
-    """Extract text from a PDF.
-
-    For simplicity, runs Tesseract on the PDF directly if supported,
-    otherwise returns empty text. Full PDF OCR would require pdf2image.
-    """
+def _extract_pdf(stored_filename: str, language: str | None = None) -> str:
+    """Extract text from a PDF."""
     from app.core.file_storage import _ensure_upload_dir, read_file
 
     file_path = (_ensure_upload_dir() / stored_filename).resolve()
 
     # Tesseract can handle PDFs directly
     if _tesseract_available():
-        return _tesseract_ocr(str(file_path))
+        return _tesseract_ocr(str(file_path), language)
 
     # Try PaddleOCR with temp file
-    engine = _get_ocr_engine()
+    engine = _get_ocr_engine(language)
     if engine is not None:
         file_bytes = read_file(stored_filename)
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
@@ -109,11 +155,12 @@ def _extract_pdf(stored_filename: str) -> str:
     return ""
 
 
-def _tesseract_ocr(file_path: str) -> str:
+def _tesseract_ocr(file_path: str, language: str | None = None) -> str:
     """Run tesseract CLI on a file and return extracted text."""
+    langs = _tesseract_langs(language)
     try:
         result = subprocess.run(
-            ["tesseract", file_path, "stdout"],
+            ["tesseract", "-l", langs, file_path, "stdout"],
             capture_output=True,
             text=True,
             timeout=60,
