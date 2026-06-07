@@ -6,7 +6,7 @@ import Modal from "../components/Modal";
 import MapView from "../components/MapView";
 import type { MapMarker } from "../components/MapView";
 import Pagination from "../components/Pagination";
-import { useAuth } from "../contexts/AuthContext";
+
 
 const emptyForm = {
   name: "",
@@ -19,6 +19,7 @@ const emptyForm = {
   specialties: "",
   has_financial_assistance: false,
   rating: "",
+  contact_person: "",
 };
 
 export default function HospitalsPage() {
@@ -38,8 +39,7 @@ export default function HospitalsPage() {
   const [deduping, setDeduping] = useState(false);
   const [showDedupConfirm, setShowDedupConfirm] = useState(false);
   const [viewMode, setViewMode] = useState<"table" | "cards" | "map">("table");
-  const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,6 +73,7 @@ export default function HospitalsPage() {
           website: form.website || undefined, specialties: form.specialties || undefined,
           has_financial_assistance: form.has_financial_assistance,
           rating: form.rating ? Number(form.rating) : undefined,
+          contact_person: form.contact_person || undefined,
         });
         setEditingItem(null);
       } else {
@@ -83,6 +84,7 @@ export default function HospitalsPage() {
           website: form.website || undefined, specialties: form.specialties || undefined,
           has_financial_assistance: form.has_financial_assistance,
           rating: form.rating ? Number(form.rating) : undefined,
+          contact_person: form.contact_person || undefined,
         });
         setShowAdd(false);
       }
@@ -104,6 +106,7 @@ export default function HospitalsPage() {
       specialties: h.specialties || "",
       has_financial_assistance: h.has_financial_assistance,
       rating: h.rating?.toString() || "",
+      contact_person: h.contact_person || "",
     });
     setFormError("");
   };
@@ -136,7 +139,7 @@ export default function HospitalsPage() {
   const modalTitle = editingItem ? `Edit: ${editingItem.name}` : "Add Hospital";
   const showModal = showAdd || editingItem !== null;
   const closeModal = () => { setShowAdd(false); setEditingItem(null); setForm(emptyForm); };
-  const colCount = isAdmin ? 8 : 7;
+  const colCount = 8;
 
   return (
     <div>
@@ -159,35 +162,29 @@ export default function HospitalsPage() {
             </button>
           </div>
           <span className="text-sm text-gray-500">{total} hospitals</span>
-          {isAdmin && (
-            <button onClick={() => setShowDedupConfirm(true)} disabled={deduping}
-              className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors inline-flex items-center gap-1.5">
-              {deduping && <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
-              {deduping ? "Deduplicating…" : "🔧 Deduplicate"}
-            </button>
-          )}
-          {isAdmin && (
-            <button onClick={async () => {
-              try {
-                const { data } = await hospitalsApi.list({ per_page: 1000 });
-                const headers = ["Name", "City", "State", "Phone", "Email", "Specialties", "Financial Assistance", "Rating"];
-                const rows = data.items.map((h) => [h.name, h.city, h.state, h.phone, h.email, h.specialties, String(h.has_financial_assistance), String(h.rating ?? "")]);
-                const csv = [headers.join(","), ...rows.map((r) => r.map((v) => `"${(v ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-                a.download = "hospitals.csv"; a.click();
-              } catch { /* handled */ }
-            }}
-              className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
-              Export CSV
-            </button>
-          )}
-          {isAdmin && (
-            <button onClick={() => { setFormError(""); setShowAdd(true); }}
-              className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors">
-              + Add Hospital
-            </button>
-          )}
+          <button onClick={() => setShowDedupConfirm(true)} disabled={deduping}
+            className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors inline-flex items-center gap-1.5">
+            {deduping && <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+            {deduping ? "Deduplicating…" : "🔧 Deduplicate"}
+          </button>
+          <button onClick={async () => {
+            try {
+              const { data } = await hospitalsApi.list({ per_page: 1000 });
+              const headers = ["Name", "City", "State", "Phone", "Email", "Specialties", "Financial Assistance", "Rating"];
+              const rows = data.items.map((h) => [h.name, h.city, h.state, h.phone, h.email, h.specialties, String(h.has_financial_assistance), String(h.rating ?? "")]);
+              const csv = [headers.join(","), ...rows.map((r) => r.map((v) => `"${(v ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+              a.download = "hospitals.csv"; a.click();
+            } catch { /* handled */ }
+          }}
+            className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
+            Export CSV
+          </button>
+          <button onClick={() => { setFormError(""); setShowAdd(true); }}
+            className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors">
+            + Add Hospital
+          </button>
         </div>
       </div>
 
@@ -214,7 +211,7 @@ export default function HospitalsPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Specialties</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Type</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Rating</th>
-                {isAdmin && <th className="px-4 py-3"></th>}
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -236,24 +233,26 @@ export default function HospitalsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-[180px]">Name</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-[180px]">Hospital Name</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-[120px]">Locality</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-[100px]">City</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">State</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-[120px]">Phone</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-[160px]">Email</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-[120px]">Contact No</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-[120px]">Person</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-[140px]">Specialties</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Type</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Rating</th>
-                  {isAdmin && <th className="px-4 py-3 w-24"></th>}
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-24 sticky right-0 bg-gray-50">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {items.map((h) => (
-                  <tr key={h.id} className="hover:bg-blue-50/50 cursor-pointer transition-colors"
+                  <tr key={h.id} className="hover:bg-blue-50/50 cursor-pointer transition-colors group"
                     onClick={() => navigate(`/hospitals/${h.id}`)}>
                     <td className="px-4 py-3 font-medium text-gray-900">{h.name}</td>
+                    <td className="px-4 py-3 text-gray-600">{h.address || "—"}</td>
                     <td className="px-4 py-3 text-gray-600">{h.city}</td>
-                    <td className="px-4 py-3 text-gray-600">{h.state || "—"}</td>
+                    <td className="px-4 py-3 text-gray-600">{h.email || "—"}</td>
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{h.phone || "—"}</td>
+                    <td className="px-4 py-3 text-gray-600">{h.contact_person || "—"}</td>
                     <td className="px-4 py-3">
                       {h.specialties ? (
                         <div className="flex flex-wrap gap-1">
@@ -263,20 +262,12 @@ export default function HospitalsPage() {
                         </div>
                       ) : "—"}
                     </td>
-                    <td className="px-4 py-3">
-                      {h.has_financial_assistance ? (
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">Govt</span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">Pvt</span>
-                      )}
+                    <td className="px-4 py-3 sticky right-0 bg-white group-hover:bg-blue-50/50" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <button onClick={(e) => openEdit(e, h)} className="text-xs text-blue-600 hover:underline font-medium">Edit</button>
+                        <button onClick={() => setConfirmArchive(h.id)} className="text-xs text-red-600 hover:underline font-medium">Delete</button>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{h.rating ? `${h.rating}/5` : "—"}</td>
-                    {isAdmin && (
-                      <td className="px-4 py-3 space-x-2" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={(e) => openEdit(e, h)} className="text-xs text-blue-600 hover:underline">Edit</button>
-                        <button onClick={() => setConfirmArchive(h.id)} className="text-xs text-red-600 hover:underline">Delete</button>
-                      </td>
-                    )}
                   </tr>
                 ))}
                 {items.length === 0 && (
@@ -308,7 +299,7 @@ export default function HospitalsPage() {
                   <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full font-medium shrink-0">Pvt</span>
                 )}
               </div>
-              <p className="text-sm text-gray-500 mb-2">{h.city}{h.state ? `, ${h.state}` : ""}</p>
+              <p className="text-sm text-gray-500 mb-2">{h.city}{h.address ? ` — ${h.address}` : ""}</p>
               {h.specialties && (
                 <div className="flex flex-wrap gap-1 mb-2">
                   {h.specialties.split(",").map((s) => (
@@ -392,6 +383,11 @@ export default function HospitalsPage() {
               <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
+            <input type="text" value={form.contact_person} onChange={(e) => setForm({ ...form, contact_person: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="Name of contact person" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>

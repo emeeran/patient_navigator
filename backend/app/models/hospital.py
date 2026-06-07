@@ -16,6 +16,7 @@ class Hospital(TimestampMixin, Base):
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    contact_person: Mapped[str | None] = mapped_column(String(255), nullable=True)
     website: Mapped[str | None] = mapped_column(String(500), nullable=True)
     specialties: Mapped[str | None] = mapped_column(Text, nullable=True)
     has_financial_assistance: Mapped[bool] = mapped_column(

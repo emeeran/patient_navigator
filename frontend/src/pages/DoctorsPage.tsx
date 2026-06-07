@@ -6,7 +6,7 @@ import Modal from "../components/Modal";
 import MapView from "../components/MapView";
 import type { MapMarker } from "../components/MapView";
 import Pagination from "../components/Pagination";
-import { useAuth } from "../contexts/AuthContext";
+
 
 const emptyForm = {
   name: "",
@@ -41,8 +41,7 @@ export default function DoctorsPage() {
   const [formError, setFormError] = useState("");
   const [confirmArchive, setConfirmArchive] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "cards" | "map">("table");
-  const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -127,7 +126,6 @@ export default function DoctorsPage() {
               Map
             </button>
           </div>
-          {isAdmin && (
           <button onClick={async () => {
             try {
               const { data } = await doctorsApi.list({ per_page: 1000 });
@@ -142,13 +140,10 @@ export default function DoctorsPage() {
             className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
             Export CSV
           </button>
-        )}
-          {isAdmin && (
           <button onClick={() => { setForm(emptyForm); setFormError(""); setEditingItem(null); setShowAdd(true); }}
             className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700">
             Add Doctor
           </button>
-        )}
         </div>
       </div>
 
@@ -204,12 +199,12 @@ export default function DoctorsPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Specialty</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Type</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Hospital</th>
-                {isAdmin && <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>}
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase sticky right-0 bg-gray-50">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {items.map((d) => (
-                <tr key={d.id} className="hover:bg-gray-50 cursor-pointer transition-colors"
+                <tr key={d.id} className="hover:bg-gray-50 cursor-pointer transition-colors group"
                   onClick={() => navigate(`/doctors/${d.id}`)}>
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900">{d.name}</div>
@@ -229,8 +224,8 @@ export default function DoctorsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">{d.hospital_name || "—"}</td>
-                  {isAdmin && (
-                    <td className="px-4 py-3 text-right space-x-2" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-4 py-3 text-right sticky right-0 bg-white group-hover:bg-gray-50" onClick={(e) => e.stopPropagation()}>
+                    <div class="flex gap-2 justify-end opacity-60 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => openEdit(d)}
                         className="px-3 py-1 text-xs font-medium text-teal-700 bg-teal-50 rounded hover:bg-teal-100">
                         Edit
@@ -239,8 +234,8 @@ export default function DoctorsPage() {
                         className="px-3 py-1 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100">
                         Delete
                       </button>
-                    </td>
-                  )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

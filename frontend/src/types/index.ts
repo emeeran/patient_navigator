@@ -99,6 +99,7 @@ export interface Hospital {
   is_active: boolean;
   latitude: number | null;
   longitude: number | null;
+  contact_person: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -21,6 +21,7 @@ class HospitalCreateRequest(BaseModel):
     rating: float | None = Field(default=None, ge=0, le=5)
     latitude: float | None = None
     longitude: float | None = None
+    contact_person: str | None = None
 
 
 class HospitalUpdateRequest(BaseModel):
@@ -39,6 +40,7 @@ class HospitalUpdateRequest(BaseModel):
     is_active: bool | None = None
     latitude: float | None = None
     longitude: float | None = None
+    contact_person: str | None = None
 
 
 class HospitalResponse(BaseModel):
@@ -58,6 +60,7 @@ class HospitalResponse(BaseModel):
     is_active: bool
     latitude: float | None
     longitude: float | None
+    contact_person: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -68,6 +71,10 @@ class HospitalListItem(BaseModel):
     id: UUID
     name: str
     city: str
+    address: str | None
+    email: str | None
+    phone: str | None
+    contact_person: str | None
     specialties: str | None
     has_financial_assistance: bool
     rating: float | None
@@ -104,6 +111,7 @@ def hospital_to_dict(h: object) -> dict:
         "is_active": h.is_active,
         "latitude": h.latitude,
         "longitude": h.longitude,
+        "contact_person": h.contact_person,
         "created_at": h.created_at,
         "updated_at": h.updated_at,
     }
@@ -115,6 +123,10 @@ def hospital_list_item_to_dict(h: object) -> dict:
         "id": h.id,
         "name": h.name,
         "city": h.city,
+        "address": h.address,
+        "email": h.email,
+        "phone": h.phone,
+        "contact_person": h.contact_person,
         "specialties": h.specialties,
         "has_financial_assistance": h.has_financial_assistance,
         "rating": h.rating,

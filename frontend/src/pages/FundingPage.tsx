@@ -4,7 +4,7 @@ import { fundingApi, adminApi } from "../api";
 import type { FundingProgram } from "../types";
 import Modal from "../components/Modal";
 import Pagination from "../components/Pagination";
-import { useAuth } from "../contexts/AuthContext";
+
 
 const emptyForm = {
   name: "", description: "", provider: "", program_type: "",
@@ -37,8 +37,7 @@ export default function FundingPage() {
   const [deduping, setDeduping] = useState(false);
   const [showDedupConfirm, setShowDedupConfirm] = useState(false);
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
-  const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+
 
   useEffect(() => { setPage(1); }, [search]);
   const load = useCallback(async () => {
@@ -134,7 +133,7 @@ export default function FundingPage() {
   const modalTitle = editingItem ? `Edit: ${editingItem.name}` : "Add Funding Program";
   const showModal = showAdd || editingItem !== null;
   const closeModal = () => { setShowAdd(false); setEditingItem(null); setForm(emptyForm); };
-  const colCount = isAdmin ? 7 : 6;
+  const colCount = 7;
 
   return (
     <div>
@@ -152,35 +151,29 @@ export default function FundingPage() {
             </button>
           </div>
           <span className="text-sm text-gray-500">{total} programs</span>
-          {isAdmin && (
-            <button onClick={() => setShowDedupConfirm(true)} disabled={deduping}
-              className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors inline-flex items-center gap-1.5">
-              {deduping && <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
-              {deduping ? "Deduplicating…" : "🔧 Deduplicate"}
-            </button>
-          )}
-          {isAdmin && (
-            <button onClick={async () => {
-              try {
-                const { data } = await fundingApi.list({ per_page: 1000 });
-                const headers = ["Name", "Provider", "Type", "Max Amount", "Deadline", "Contact Email", "Contact Phone"];
-                const rows = data.items.map((f) => [f.name, f.provider, f.program_type, String(f.max_amount ?? ""), f.deadline ? new Date(f.deadline).toLocaleDateString() : "", f.contact_email, f.contact_phone]);
-                const csv = [headers.join(","), ...rows.map((r) => r.map((v) => `"${(v ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-                a.download = "funding.csv"; a.click();
-              } catch { /* handled */ }
-            }}
-              className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
-              Export CSV
-            </button>
-          )}
-          {isAdmin && (
-            <button onClick={() => { setFormError(""); setShowAdd(true); }}
-              className="px-4 py-2 bg-pink-600 text-white text-sm font-medium rounded-lg hover:bg-pink-700 transition-colors">
-              + Add Program
-            </button>
-          )}
+          <button onClick={() => setShowDedupConfirm(true)} disabled={deduping}
+            className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors inline-flex items-center gap-1.5">
+            {deduping && <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+            {deduping ? "Deduplicating…" : "🔧 Deduplicate"}
+          </button>
+          <button onClick={async () => {
+            try {
+              const { data } = await fundingApi.list({ per_page: 1000 });
+              const headers = ["Name", "Provider", "Type", "Max Amount", "Deadline", "Contact Email", "Contact Phone"];
+              const rows = data.items.map((f) => [f.name, f.provider, f.program_type, String(f.max_amount ?? ""), f.deadline ? new Date(f.deadline).toLocaleDateString() : "", f.contact_email, f.contact_phone]);
+              const csv = [headers.join(","), ...rows.map((r) => r.map((v) => `"${(v ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+              a.download = "funding.csv"; a.click();
+            } catch { /* handled */ }
+          }}
+            className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
+            Export CSV
+          </button>
+          <button onClick={() => { setFormError(""); setShowAdd(true); }}
+            className="px-4 py-2 bg-pink-600 text-white text-sm font-medium rounded-lg hover:bg-pink-700 transition-colors">
+            + Add Program
+          </button>
         </div>
       </div>
 
@@ -206,7 +199,7 @@ export default function FundingPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Max Amount</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Deadline</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Contact</th>
-                {isAdmin && <th className="px-4 py-3"></th>}
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -234,12 +227,12 @@ export default function FundingPage() {
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Max Amount</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Deadline</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-[140px]">Contact</th>
-                  {isAdmin && <th className="px-4 py-3 w-24"></th>}
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-28 sticky right-0 bg-gray-50">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {items.map((f) => (
-                  <tr key={f.id} className="hover:bg-blue-50/50 cursor-pointer transition-colors"
+                  <tr key={f.id} className="hover:bg-blue-50/50 cursor-pointer transition-colors group"
                     onClick={() => navigate(`/funding/${f.id}`)}>
                     <td className="px-4 py-3 font-medium text-gray-900">{f.name}</td>
                     <td className="px-4 py-3 text-gray-600">{f.provider || "—"}</td>
@@ -264,12 +257,12 @@ export default function FundingPage() {
                         <a href={`mailto:${f.contact_email}`} onClick={(e) => e.stopPropagation()} className="text-xs text-blue-600 hover:underline">{f.contact_email}</a>
                       ) : f.contact_phone || "—"}
                     </td>
-                    {isAdmin && (
-                      <td className="px-4 py-3 space-x-2" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={(e) => openEdit(e, f)} className="text-xs text-blue-600 hover:underline">Edit</button>
-                        <button onClick={() => setConfirmArchive(f.id)} className="text-xs text-red-600 hover:underline">Delete</button>
-                      </td>
-                    )}
+                    <td className="px-4 py-3 sticky right-0 bg-white group-hover:bg-blue-50/50" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <button onClick={(e) => openEdit(e, f)} className="text-xs text-blue-600 hover:underline font-medium">Edit</button>
+                        <button onClick={() => setConfirmArchive(f.id)} className="text-xs text-red-600 hover:underline font-medium">Delete</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
                 {items.length === 0 && (
