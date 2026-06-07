@@ -12,6 +12,14 @@ const emptyForm = {
   deadline: "", contact_email: "", contact_phone: "",
 };
 
+function deadlineStatus(deadline: string | null): { label: string; className: string } {
+  if (!deadline) return { label: "No deadline", className: "text-gray-400" };
+  const daysLeft = Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
+  if (daysLeft < 0) return { label: "Expired", className: "bg-red-100 text-red-700" };
+  if (daysLeft <= 30) return { label: `${daysLeft}d left`, className: "bg-amber-100 text-amber-700" };
+  return { label: `${daysLeft}d left`, className: "bg-green-100 text-green-700" };
+}
+
 export default function FundingPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState<FundingProgram[]>([]);
@@ -227,8 +235,13 @@ export default function FundingPage() {
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
                       {f.max_amount ? `₹${f.max_amount.toLocaleString()}` : "—"}
                     </td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                      {f.deadline ? new Date(f.deadline).toLocaleDateString() : "—"}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {f.deadline ? (() => {
+                        const s = deadlineStatus(f.deadline);
+                        return <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${s.className}`}>
+                          {new Date(f.deadline).toLocaleDateString()} ({s.label})
+                        </span>;
+                      })() : <span className="text-xs text-gray-400">No deadline</span>}
                     </td>
                     <td className="px-4 py-3">
                       {f.contact_email ? (
@@ -277,9 +290,12 @@ export default function FundingPage() {
                 <span className="text-gray-900 font-medium">
                   {f.max_amount ? `₹${Number(f.max_amount).toLocaleString()}` : "—"}
                 </span>
-                {f.deadline ? (
-                  <span className="text-xs text-gray-500">{new Date(f.deadline).toLocaleDateString()}</span>
-                ) : (
+                {f.deadline ? (() => {
+                  const s = deadlineStatus(f.deadline);
+                  return <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${s.className}`}>
+                    {s.label}
+                  </span>;
+                })() : (
                   <span className="text-xs text-gray-400">No deadline</span>
                 )}
               </div>

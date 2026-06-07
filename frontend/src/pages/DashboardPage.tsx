@@ -82,6 +82,66 @@ export default function DashboardPage() {
           medical summaries, explain terms, and get specialist recommendations.
         </p>
       </div>
+
+      {/* Funding stats */}
+      {cards.length > 0 && cards.find((c) => c.label === "Funding") && (
+        <FundingStats />
+      )}
+    </div>
+  );
+}
+
+function FundingStats() {
+  const [stats, setStats] = useState<{ active: number; avgMax: number; expiringSoon: number; expired: number } | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data } = await fundingApi.list({ per_page: 100, is_active: true });
+        const programs = data.items;
+        const now = Date.now();
+        const active = programs.length;
+        const avgMax = programs.length
+          ? Math.round(programs.reduce((sum, p) => sum + (p.max_amount || 0), 0) / programs.length)
+          : 0;
+        const expiringSoon = programs.filter((p) => {
+          if (!p.deadline) return false;
+          const days = Math.ceil((new Date(p.deadline).getTime() - now) / 86400000);
+          return days >= 0 && days <= 30;
+        }).length;
+        const expired = programs.filter((p) => {
+          if (!p.deadline) return false;
+          return new Date(p.deadline).getTime() < now;
+        }).length;
+        setStats({ active, avgMax, expiringSoon, expired });
+      } catch { /* ok */ }
+    }
+    load();
+  }, []);
+
+  if (!stats) return null;
+
+  return (
+    <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6">
+      <h3 className="text-sm font-semibold text-gray-500 uppercase mb-4">Funding Overview</h3>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div>
+          <p className="text-2xl font-bold text-gray-900">{stats.active}</p>
+          <p className="text-xs text-gray-500">Active Programs</p>
+        </div>
+        <div>
+          <p className="text-2xl font-bold text-gray-900">₹{stats.avgMax.toLocaleString()}</p>
+          <p className="text-xs text-gray-500">Avg Max Amount</p>
+        </div>
+        <div>
+          <p className="text-2xl font-bold text-amber-600">{stats.expiringSoon}</p>
+          <p className="text-xs text-gray-500">Expiring Soon</p>
+        </div>
+        <div>
+          <p className="text-2xl font-bold text-red-600">{stats.expired}</p>
+          <p className="text-xs text-gray-500">Expired</p>
+        </div>
+      </div>
     </div>
   );
 }
