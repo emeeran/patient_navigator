@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { hospitalsApi, adminApi } from "../api";
 import type { Hospital } from "../types";
 import Modal from "../components/Modal";
+import MapView from "../components/MapView";
+import type { MapMarker } from "../components/MapView";
 import Pagination from "../components/Pagination";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -35,7 +37,7 @@ export default function HospitalsPage() {
   const [dedupMsg, setDedupMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [deduping, setDeduping] = useState(false);
   const [showDedupConfirm, setShowDedupConfirm] = useState(false);
-  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const [viewMode, setViewMode] = useState<"table" | "cards" | "map">("table");
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
@@ -150,6 +152,10 @@ export default function HospitalsPage() {
             <button onClick={() => setViewMode("cards")}
               className={`px-3 py-1.5 text-xs font-medium ${viewMode === "cards" ? "bg-purple-50 text-purple-700" : "text-gray-500 hover:bg-gray-50"}`}>
               Cards
+            </button>
+            <button onClick={() => setViewMode("map")}
+              className={`px-3 py-1.5 text-xs font-medium ${viewMode === "map" ? "bg-purple-50 text-purple-700" : "text-gray-500 hover:bg-gray-50"}`}>
+              Map
             </button>
           </div>
           <span className="text-sm text-gray-500">{total} hospitals</span>
@@ -303,7 +309,25 @@ export default function HospitalsPage() {
         </div>
       )}
 
-      {!loading && total > 0 && (
+      {/* Map view */}
+      {!loading && items.length > 0 && viewMode === "map" && (() => {
+        const markers: MapMarker[] = items
+          .filter((h) => h.latitude != null && h.longitude != null)
+          .map((h) => ({
+            id: h.id, lat: h.latitude!, lng: h.longitude!,
+            label: h.name, popup: `${h.city}${h.specialties ? ` — ${h.specialties.split(",").slice(0, 3).join(", ")}` : ""}`,
+          }));
+        return markers.length > 0 ? (
+          <div>
+            <p className="text-xs text-gray-500 mb-2">{markers.length} of {items.length} hospitals have location data</p>
+            <MapView markers={markers} onMarkerClick={(id) => navigate(`/hospitals/${id}`)} />
+          </div>
+        ) : (
+          <p className="text-center text-gray-400 py-12">No hospitals with location data available.</p>
+        );
+      })()}
+
+      {!loading && total > 0 && viewMode !== "map" && (
         <Pagination page={page} total={total} perPage={20} onChange={setPage} />
       )}
 

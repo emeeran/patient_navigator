@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { doctorsApi } from "../api";
 import type { Doctor } from "../types";
 import Modal from "../components/Modal";
+import MapView from "../components/MapView";
+import type { MapMarker } from "../components/MapView";
 import Pagination from "../components/Pagination";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -38,6 +40,7 @@ export default function DoctorsPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [confirmArchive, setConfirmArchive] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"table" | "cards" | "map">("table");
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
@@ -113,12 +116,24 @@ export default function DoctorsPage() {
           <h2 className="text-2xl font-bold text-gray-900">Doctors</h2>
           <p className="text-sm text-gray-500 mt-1">{total} doctor{total !== 1 ? "s" : ""} found</p>
         </div>
-        {isAdmin && (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+            <button onClick={() => setViewMode("table")}
+              className={`px-3 py-1.5 text-xs font-medium ${viewMode === "table" ? "bg-teal-50 text-teal-700" : "text-gray-500 hover:bg-gray-50"}`}>
+              Table
+            </button>
+            <button onClick={() => setViewMode("map")}
+              className={`px-3 py-1.5 text-xs font-medium ${viewMode === "map" ? "bg-teal-50 text-teal-700" : "text-gray-500 hover:bg-gray-50"}`}>
+              Map
+            </button>
+          </div>
+          {isAdmin && (
           <button onClick={() => { setForm(emptyForm); setFormError(""); setEditingItem(null); setShowAdd(true); }}
             className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700">
             Add Doctor
           </button>
         )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -148,7 +163,22 @@ export default function DoctorsPage() {
         </div>
       ) : items.length === 0 ? (
         <p className="text-center text-gray-500 py-12">No doctors found.</p>
-      ) : (
+      ) : viewMode === "map" ? (() => {
+        const markers: MapMarker[] = items
+          .filter((d) => d.latitude != null && d.longitude != null)
+          .map((d) => ({
+            id: d.id, lat: d.latitude!, lng: d.longitude!,
+            label: d.name, popup: `${d.specialty || "Doctor"}${d.hospital_name ? ` — ${d.hospital_name}` : ""}`,
+          }));
+        return markers.length > 0 ? (
+          <div>
+            <p className="text-xs text-gray-500 mb-2">{markers.length} of {items.length} doctors have location data</p>
+            <MapView markers={markers} onMarkerClick={(id) => navigate(`/doctors/${id}`)} />
+          </div>
+        ) : (
+          <p className="text-center text-gray-400 py-12">No doctors with location data available.</p>
+        );
+      })() : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -202,7 +232,7 @@ export default function DoctorsPage() {
         </div>
       )}
 
-      {pages > 1 && (
+      {pages > 1 && viewMode !== "map" && (
         <Pagination page={page} total={total} perPage={20} onChange={setPage} />
       )}
 
